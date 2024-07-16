@@ -6973,6 +6973,12 @@ test_RSA_i31(void)
 }
 
 static void
+test_RSA_safe(void)
+{
+	test_RSA_core("RSA i31 safe", &br_rsa_i31_public, &br_rsa_i31_private_safe);
+}
+
+static void
 test_RSA_i32(void)
 {
 	test_RSA_core("RSA i32 core", &br_rsa_i32_public, &br_rsa_i32_private);
@@ -9419,6 +9425,7 @@ static const struct {
 	STU(RSA_i31),
 	STU(RSA_i32),
 	STU(RSA_i62),
+	STU(RSA_safe),
 	STU(GHASH_ctmul),
 	STU(GHASH_ctmul32),
 	STU(GHASH_ctmul64),

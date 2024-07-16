@@ -720,6 +720,10 @@ uint32_t br_rsa_i31_pss_vrfy(const unsigned char *x, size_t xlen,
 uint32_t br_rsa_i31_private(unsigned char *x,
 	const br_rsa_private_key *sk);
 
+
+
+uint32_t br_rsa_i31_private_safe(unsigned char *x,
+		const br_rsa_private_key *sk);
 /**
  * \brief RSA signature generation engine "i31" (PKCS#1 v1.5 signatures).
  *
