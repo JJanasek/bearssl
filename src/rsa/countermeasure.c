@@ -146,9 +146,17 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	/*
 	 * Decode q.
 	 */
+
+	/* 
+	 * tmp [mq, q, ....]
+	 */
+
 	mq = tmp;
 	br_i31_decode(mq + fwlen, q, qlen);
 
+	/*
+	 * tmp [mq + q * r1, ...]
+	 */
 	
 	br_i31_mulacc(mq, mq + fwlen, r1);
 	br_i31_zero(mq + fwlen, fwlen);
@@ -158,9 +166,17 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 * Decode p.
 	 */
 
+	/*	 mq        
+	 * tmp [q * r1, t1 ,p, ...]
+	 */
+
 	t1 = mq + fwlen;
 
 	br_i31_decode(t1 + fwlen, p, plen);
+	
+	/*
+	 * tmp [q * r1, t1 + p * r2, ... ]
+	 */
 	
 	br_i31_mulacc(t1,t1 + fwlen, r2);
 
@@ -170,6 +186,11 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 * Compute the modulus (product of the two factors), to compare
 	 * it with the source value. We use br_i31_mulacc(), since it's
 	 * already used later on.
+	 */
+	
+
+	/*
+	 * tmp [q *r1, p * r2, q*r1 * p*r2, ... ]
 	 */
 
 	t2 = mq + 2 * fwlen;
@@ -204,6 +225,12 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	/*
 	 * Move the decoded p to another temporary buffer.
 	 */
+
+
+	/*
+	 * tmp [ q *r1, ..., p*r2, ... ]
+	 */
+
 	mp = mq + 2 * fwlen;
 	memmove(mp, t1, fwlen * sizeof *t1);
 
@@ -224,10 +251,31 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 
 	q0i = br_i31_ninv31(mq[1]);
 	s2 = mq + fwlen;
+	
+	/*
+	 * tmp [q *r1, m (mod q * r1), p * r2]
+	 */
+
 	br_i31_decode_reduce(s2, x, xlen, mq);
+	
+	/*
+	 * spr [m (mod r1)]
+	 */
+
 	br_i31_decode_reduce(sqr, x, xlen, r1);
+	
+	/*
+	 * tmp [q * r1, (m (mod q * r1) ^ dq, p * r2), ...]
+	 */
+
+	// here is mistake it should be not dq but mq (mod phi(q))
+	
 	r &= br_i31_modpow_opt(s2, sk->dq, sk->dqlen, mq, q0i,
 		mq + 3 * fwlen, TLEN - 3 * fwlen);
+	
+	/*
+	 * tmp [q * r1, (m (mod q * r1) )^dp  + a * 1, p * r2, ...]
+	 */
 	
 	uint32_t hlp[2] = {1, 1};
 	br_i31_mulacc(s2, a, hlp);
@@ -253,7 +301,7 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 * Compute:
 	 *   h = (s1 - s2)*(1/q) mod p
 	 * s1 is an integer modulo p, but s2 is modulo q. PKCS#1 is
-	 * unclear about whether p may be lower than q (some existing,
+	 * :wqunclear about whether p may be lower than q (some existing,
 	 * widely deployed implementations of RSA don't tolerate p < q),
 	 * but we want to support that occurrence, so we need to use the
 	 * reduction function.
