@@ -132,9 +132,9 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	fwlen += (fwlen & 1);
 
 	/*
-	 * We need to fit at least 6 values in the stack buffer.
+	 * We need to fit at least 8 values in the stack buffer.
 	 */
-	if (6 * fwlen > TLEN) {
+	if (8 * fwlen > TLEN) {
 		return 0;
 	}
 
@@ -268,17 +268,18 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 * tmp [q * r1, (m (mod q * r1) ^ dq, p * r2), ...]
 	 */
 
-	// here is mistake it should be not dq but mq (mod phi(q))
-	
-	r &= br_i31_modpow_opt(s2, sk->dq, sk->dqlen, mq, q0i,
-		mq + 3 * fwlen, TLEN - 3 * fwlen);
+	uint32_t one[2] = {1, 1};
+	br_i31_sub(tmp + 4 * fwlen, mq, hlp);
+	br_i31_reduce(tmp + 3 * fwlen, mq, tmp + 4 * fwlen);
+		
+	r &= br_i31_modpow_opt(s2, tmp + 3 * fwlen, *(tmp + 3 * fwlen ), mq, q0i,
+		mq + 4 * fwlen, TLEN - 4 * fwlen);
 	
 	/*
 	 * tmp [q * r1, (m (mod q * r1) )^dp  + a * 1, p * r2, ...]
 	 */
 	
-	uint32_t hlp[2] = {1, 1};
-	br_i31_mulacc(s2, a, hlp);
+	br_i31_mulacc(s2, a, one);
 	
 	/*
 	 * Compute s1 = x^dp mod p.
@@ -292,6 +293,7 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	br_i31_decode_reduce(s1, x, xlen, mp);
 	br_i31_decode_reduce(spr, x, xlen, r2);
 
+	// here is mistake it should be not dp but mp (mod phi(p'))
 	r &= br_i31_modpow_opt(s1, sk->dp, sk->dplen, mp, p0i,
 		mq + 4 * fwlen, TLEN - 4 * fwlen);
 	
@@ -301,7 +303,7 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 * Compute:
 	 *   h = (s1 - s2)*(1/q) mod p
 	 * s1 is an integer modulo p, but s2 is modulo q. PKCS#1 is
-	 * :wqunclear about whether p may be lower than q (some existing,
+	 * unclear about whether p may be lower than q (some existing,
 	 * widely deployed implementations of RSA don't tolerate p < q),
 	 * but we want to support that occurrence, so we need to use the
 	 * reduction function.
@@ -333,8 +335,6 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	t3 = s2;
 	br_i31_mulacc(t3, mq, t2);
 
-	uint32_t one[2] = {1, 1};
-
 	br_i31_add(spr, one, 1);
 	br_i31_add(sqr, one, 1);
 
@@ -362,9 +362,6 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	br_i31_add(gama, hlp, 1);
 	br_i31_rshift(gama, t4[0]);
 	
-	// spocitej N -> p * q;
-	// udelej a^gama mod N
-	// uloz do x t3 - (a^gama mod N)
 
 	/*
 	 * Encode the result. Since we already checked the value of xlen,
