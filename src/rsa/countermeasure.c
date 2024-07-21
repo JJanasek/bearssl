@@ -61,6 +61,29 @@ mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
 }
 
 
+static uint32_t compute_phi(uint32_t in){
+	
+	uint64_t r = in;
+	uint32_t p = 2;
+
+	while ( p <= in ){
+		
+		if ( in % p == 0){
+			r *= p - 1;
+			r /= p;		
+		}
+
+		while ( in % p == 0){
+			in /= p;
+		}
+	
+		++ p; 
+	}
+
+	return r;
+
+}
+
 /* see bearssl_rsa.h */
 uint32_t
 br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
@@ -80,16 +103,19 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 
 	br_hmac_drbg_context rng;
 
-        br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 19);	
+        br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);	
 	/*
 	 * Create small random numbers r1, r2, r3
 	 */
 
         uint32_t r1[2], r2[2], r3[2];	
 	
-	mkrand(&rng.vtable, r1 + 1, 31);
-	mkrand(&rng.vtable, r2 + 1, 31);
-	mkrand(&rng.vtable, r3 + 1, 31);
+	mkrand(&rng.vtable, r1, 4);
+	mkrand(&rng.vtable, r2, 4);
+	mkrand(&rng.vtable, r3, 4);
+
+	r2[1] |= 1;
+	r1[1] |= 1;
 	
 	r1[0] = br_i31_bit_length(r1+1, 1);
 	r2[0] = br_i31_bit_length(r2+1, 1);
@@ -152,6 +178,7 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 */
 
 	mq = tmp;
+	br_i31_zero(mq, fwlen <<  5);
 	br_i31_decode(mq + fwlen, q, qlen);
 
 	/*
@@ -159,7 +186,7 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 */
 	
 	br_i31_mulacc(mq, mq + fwlen, r1);
-	br_i31_zero(mq + fwlen, fwlen);
+	br_i31_zero(mq + fwlen, fwlen << 5);
 
 
 	/*
@@ -171,7 +198,6 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 */
 
 	t1 = mq + fwlen;
-
 	br_i31_decode(t1 + fwlen, p, plen);
 	
 	/*
@@ -179,8 +205,7 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 */
 	
 	br_i31_mulacc(t1,t1 + fwlen, r2);
-
-	br_i31_zero(t1+fwlen, fwlen);
+	br_i31_zero(t1+fwlen, fwlen << 5);
 
 	/*
 	 * Compute the modulus (product of the two factors), to compare
@@ -198,7 +223,6 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	br_i31_mulacc(t2, mq, t1);
 	
 	r = 1;
-	xlen = (t2[0] + 7) >> 3;
 
 	/*
 	 * We encode the modulus into bytes, to perform the comparison
@@ -236,69 +260,88 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 
 
 	uint32_t a[2];
-	mkrand(&rng.vtable, a + 1, 31);
-	a[0] = br_i31_bit_length(a +1, 1);
+	mkrand(&rng.vtable, a, 4);
+	a[0] = br_i31_bit_length(a + 1, 1);
 	
 
+	uint32_t one[2] = {1, 1};
 
 	/*
 	 * Compute s2 = x^dq mod q.
 	 */
 	
-	uint32_t sqr[2] = {0, 0};
-	br_i31_add(sqr, a, 1);
-
-
 	q0i = br_i31_ninv31(mq[1]);
 	s2 = mq + fwlen;
-	
-	/*
-	 * tmp [q *r1, m (mod q * r1), p * r2]
-	 */
-
-	br_i31_decode_reduce(s2, x, xlen, mq);
-	
-	/*
-	 * spr [m (mod r1)]
-	 */
-
-	br_i31_decode_reduce(sqr, x, xlen, r1);
-	
-	/*
-	 * tmp [q * r1, (m (mod q * r1) ^ dq, p * r2), ...]
-	 */
-
-	uint32_t one[2] = {1, 1};
-	br_i31_sub(tmp + 4 * fwlen, mq, hlp);
-	br_i31_reduce(tmp + 3 * fwlen, mq, tmp + 4 * fwlen);
-		
-	r &= br_i31_modpow_opt(s2, tmp + 3 * fwlen, *(tmp + 3 * fwlen ), mq, q0i,
-		mq + 4 * fwlen, TLEN - 4 * fwlen);
-	
-	/*
-	 * tmp [q * r1, (m (mod q * r1) )^dp  + a * 1, p * r2, ...]
-	 */
+	br_i31_decode_reduce(s2, x, xlen, mq);	
+	r &= br_i31_modpow_opt(s2, sk->dq, sk->dqlen, mq, q0i,
+		mq + 3 * fwlen, TLEN - 3 * fwlen);
 	
 	br_i31_mulacc(s2, a, one);
 	
 	/*
-	 * Compute s1 = x^dp mod p.
+	 * tmp [q * r1, (m (mod q * r1) )^dp  + a * 1, p * r2, ...]
+	 */
+		
+	
+	/*
+	 * Compute sqr = x^dq mod r1
 	 */
 
-	uint32_t spr[2] = {0, 0};
-	br_i31_add(spr, a, 1);
+	uint32_t sqr[2] = {0, 0};
+	uint32_t r10i = br_i31_ninv31(r1[1]);
+	uint32_t phi[2] = {0, compute_phi(r1[1])};
+
+	phi[0] = br_i31_bit_length(phi +1, 1);
+	uint32_t dq[2];
+		
+	br_i31_decode_reduce(dq, sk->dq, sk->dqlen, phi);
+	br_i31_decode_reduce(sqr, x, xlen, r1);
+
+	r &= br_i31_modpow_opt(sqr, (const unsigned char *)(dq + 1), (dq[0] + 7) >> 3, r1, r10i, mq + 3 * fwlen, TLEN - 3 * fwlen);
+	br_i31_mulacc(sqr, a, one);
+
+
+	/*
+	 * Compute s1 = x^dp mod p.
+	 */
 
 	p0i = br_i31_ninv31(mp[1]);
 	s1 = mq + 3 * fwlen;
 	br_i31_decode_reduce(s1, x, xlen, mp);
-	br_i31_decode_reduce(spr, x, xlen, r2);
 
-	// here is mistake it should be not dp but mp (mod phi(p'))
 	r &= br_i31_modpow_opt(s1, sk->dp, sk->dplen, mp, p0i,
 		mq + 4 * fwlen, TLEN - 4 * fwlen);
-	
-	br_i31_mulacc(s1, a, hlp);
+	br_i31_mulacc(s1, a, one);
 
+
+	
+	/*
+	 * Compute spr = x^dp mod r2
+	 */
+
+	uint32_t spr[2] = {0, 0};
+	uint32_t r20i = br_i31_ninv31(r2[1]);
+	phi[1] = compute_phi(r2[1]);
+
+	phi[0] = br_i31_bit_length(phi +1, 1);
+	uint32_t dp[2];
+		
+	br_i31_decode_reduce(dp, sk->dp, sk->dplen, phi);
+	br_i31_decode_reduce(spr, x, xlen, r2);
+
+	r &= br_i31_modpow_opt(spr, (const unsigned char *) (dp + 1), (dp[0] + 7) >> 3 , r2, r20i, mq + 4 * fwlen, TLEN - 4 * fwlen);
+	br_i31_mulacc(spr, a, one);
+	
+
+	/*
+	 * Compute iq'
+	 */
+	uint32_t * iq = mq + 4 * fwlen;
+	br_i31_zero(iq, fwlen << 5);
+	iq[1] = 1;
+	br_i31_moddiv(iq, mq, mp, br_i31_ninv31(mp[1]), iq + fwlen);
+	
+	
 	/*
 	 * Compute:
 	 *   h = (s1 - s2)*(1/q) mod p
@@ -312,13 +355,17 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 * inverse of q modulo p), we also tolerate improperly large
 	 * values for this parameter.
 	 */
-	t1 = mq + 4 * fwlen;
+	
+	//t1 = mq + 5 * fwlen;
 	t2 = mq + 5 * fwlen;
 	br_i31_reduce(t2, s2, mp);
 	br_i31_add(s1, mp, br_i31_sub(s1, t2, 1));
 	br_i31_to_monty(s1, mp);
-	br_i31_decode_reduce(t1, sk->iq, sk->iqlen, mp);
-	br_i31_montymul(t2, s1, t1, mp, p0i);
+	
+	//br_i31_decode_reduce(t1, sk->iq, sk->iqlen, mp);
+	
+	br_i31_montymul(t2, s1, iq, mp, p0i);
+	//br_i31_from_monty(t2, mp, p0i);
 
 	/*
 	 * h is now in t2. We compute the final result:
@@ -332,42 +379,81 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 * now, mq is in slot 0, s2 is in slot 1, and t2 is in slot 5.
 	 * Therefore, we have ample room for t3 by simply using s2.
 	 */
-	t3 = s2;
-	br_i31_mulacc(t3, mq, t2);
 
-	br_i31_add(spr, one, 1);
-	br_i31_add(sqr, one, 1);
-
-	uint32_t reduced_x_r1[2] = {0, 0};
-	uint32_t reduced_x_r2[2] = {0, 0};
-
-	br_i31_reduce(reduced_x_r1, t3, r1);
-	br_i31_reduce(reduced_x_r2, t3, r2);
-
-	br_i31_sub(reduced_x_r1, sqr, 1);
-	br_i31_sub(reduced_x_r2, spr, 1);
+	 t3 = s2;
+	 br_i31_mulacc(t3, mq, t2);
 
 
-	uint32_t gama[2];
-	br_i31_mulacc(gama, r3, reduced_x_r1);
+
+	 /*
+	  * c1 = S' - Sqr + 1 mod r1
+	  * c2 = S' - Spr + 1 mod r2
+	  */
+
+	 uint32_t c1[2] = {0,0};
+	 uint32_t c2[2] = {0,0};
+
+	 br_i31_reduce(c1, t3, r1);
+	 br_i31_reduce(c2, t3, r2);
+	 
+	 uint32_t hlp[2];
+	 br_i31_reduce(hlp, sqr, r1);
+	 br_i31_sub(c1, hlp, 1);
+	 
+	 br_i31_reduce(hlp, spr, r2);
+	 br_i31_sub(c2, hlp, 1);
+
 	
-	uint32_t elen = (reduced_x_r1[0] > reduced_x_r2[0])? reduced_x_r1[0] : reduced_x_r2[0];
+	 br_i31_add(c1, one, 1);
+	 br_i31_add(c2, one, 1);
 
-	uint32_t t4[2] = {0, ( 1u << elen ) - r3[1]};
-	t4[0] = br_i31_bit_length(t4 +1, 1);
-
-	br_i31_zero(hlp, hlp[0]);
-	br_i31_mulacc(hlp, r3, t4);
-
-	br_i31_add(gama, hlp, 1);
-	br_i31_rshift(gama, t4[0]);
+	 c1[0] = br_i31_bit_length(c1 + 1, 1);
+	 c2[0] = br_i31_bit_length(c2 + 1, 1);
+	 uint32_t l = (c1[0] > c2[0])? c1[0] : c2[0];
 	
+	 /*
+	  * gama = (r3 * c1 + (2^l - r3) * c2) / 2^l
+	  */
+	
+	 uint32_t gama[2] = {0,0};
+	 hlp[1] = 1 << l;
+	 hlp[0] = l;
+
+	 br_i31_mulacc(gama, c1, r3);
+	 br_i31_sub(hlp, r3, 1);
+	 br_i31_mulacc(gama, c2, hlp);
+	 br_i31_rshift(gama, l);
 
 	/*
 	 * Encode the result. Since we already checked the value of xlen,
 	 * we can just use it right away.
 	 */
-	br_i31_encode(x, xlen, t3);
+	
+	/*
+	 * Compute N = p * q
+	 */
+
+	 br_i31_decode(mq + 2 * fwlen, sk->q, sk->qlen);
+	 br_i31_decode(mq + 3 * fwlen, sk->p, sk->plen);
+	 mp = mq + 3 * fwlen;
+	 t1 = mq + 2 * fwlen;
+
+	 br_i31_zero(mq + 4 * fwlen, xlen << 3);
+	 br_i31_mulacc(mq + 4 *fwlen, t1, mp);
+	
+
+ 	 memmove(mq + 2 * fwlen,  mq + 4 *fwlen, xlen);	 
+	 uint32_t * N = mq + 2 * fwlen;
+
+	 t2 = N + ((xlen + 3) >> 2);
+	 memcpy(t2, a, 2 * sizeof a[0]);
+
+	 br_i31_modpow_opt(t2, (unsigned char*)(gama + 1), (gama[0] + 7) >> 3, N, br_i31_ninv31(N[1]),  t2 + ( (xlen + 3) >> 2 ), TLEN  - (2 * fwlen + 2 * ((xlen + 3) >> 2)));
+	 br_i31_sub(t3, t2, 1);
+	 br_i31_reduce(mq, t3, N); 
+	
+
+	 br_i31_encode(x, xlen, mq);
 
 	/*
 	 * The only error conditions remaining at that point are invalid
