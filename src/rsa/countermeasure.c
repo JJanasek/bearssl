@@ -233,7 +233,7 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 * a value in the correct range. We keep it in r, which is our
 	 * accumulator for the error code.
 	 */
-	/*t3 = mq + 4 * fwlen;
+	t3 = mq + 4 * fwlen;
 	br_i31_encode(t3, xlen, t2);
 	u = xlen;
 	r = 0;
@@ -245,7 +245,7 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 		wx = x[u];
 		r = ((wx - (wn + r)) >> 8) & 1;
 	}
-	*/
+	
 	/*
 	 * Move the decoded p to another temporary buffer.
 	 */
@@ -296,7 +296,10 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 		
 	br_i31_decode_reduce(dq, sk->dq, sk->dqlen, phi);
 	br_i31_decode_reduce(sqr, x, xlen, r1);
-
+	
+	br_enc32be(dq + 1, *(dq + 1));
+	dq[0] = br_i31_bit_length(dq +1, 1);
+	
 	r &= br_i31_modpow_opt(sqr, (const unsigned char *)(dq + 1), (dq[0] + 7) >> 3, r1, r10i, mq + 3 * fwlen, TLEN - 3 * fwlen);
 	br_i31_mulacc(sqr, a, one);
 
@@ -328,7 +331,10 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 		
 	br_i31_decode_reduce(dp, sk->dp, sk->dplen, phi);
 	br_i31_decode_reduce(spr, x, xlen, r2);
-
+	
+	br_enc32be(dp + 1, *(dp + 1));
+	dp[0] = br_i31_bit_length(dp +1, 1);
+	
 	r &= br_i31_modpow_opt(spr, (const unsigned char *) (dp + 1), (dp[0] + 7) >> 3 , r2, r20i, mq + 4 * fwlen, TLEN - 4 * fwlen);
 	br_i31_mulacc(spr, a, one);
 	
@@ -423,7 +429,10 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 br_i31_sub(hlp, r3, 1);
 	 br_i31_mulacc(gama, c2, hlp);
 	 br_i31_rshift(gama, l);
-
+	
+	 
+	br_enc32be(gama + 1, *(gama + 1));
+	gama[0] = br_i31_bit_length(gama +1, 1);
 	/*
 	 * Encode the result. Since we already checked the value of xlen,
 	 * we can just use it right away.
@@ -433,27 +442,26 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 * Compute N = p * q
 	 */
 
-	 br_i31_decode(mq + 2 * fwlen, sk->q, sk->qlen);
+	 br_i31_decode(mq, sk->q, sk->qlen);
 	 br_i31_decode(mq + 3 * fwlen, sk->p, sk->plen);
 	 mp = mq + 3 * fwlen;
-	 t1 = mq + 2 * fwlen;
 
-	 br_i31_zero(mq + 4 * fwlen, xlen << 3);
-	 br_i31_mulacc(mq + 4 *fwlen, t1, mp);
+	 br_i31_zero(mq + 4 * fwlen, (2*fwlen) << 5);
+	 br_i31_mulacc(mq + 4 *fwlen, mq, mp);
 	
-
- 	 memmove(mq + 2 * fwlen,  mq + 4 *fwlen, xlen);	 
+	 memmove(mq, t3, 2 * fwlen * sizeof *mq);
+ 	 memmove(mq + 2 * fwlen,  mq + 4 *fwlen, 2 * fwlen * sizeof *mq);	 
 	 uint32_t * N = mq + 2 * fwlen;
 
-	 t2 = N + ((xlen + 3) >> 2);
-	 memcpy(t2, a, 2 * sizeof a[0]);
+	 t2 = N + 2 * fwlen;
+	 memmove(t2, a, 2 * sizeof a[0]);
 
-	 br_i31_modpow_opt(t2, (unsigned char*)(gama + 1), (gama[0] + 7) >> 3, N, br_i31_ninv31(N[1]),  t2 + ( (xlen + 3) >> 2 ), TLEN  - (2 * fwlen + 2 * ((xlen + 3) >> 2)));
+	 br_i31_modpow_opt(t2, (unsigned char*)(gama + 1), (gama[0] + 7) >> 3, N, br_i31_ninv31(N[1]),  t2 + 2 * fwlen, TLEN  - 6*fwlen);
 	 br_i31_sub(t3, t2, 1);
-	 br_i31_reduce(mq, t3, N); 
+	 br_i31_reduce(mq+4*fwlen, t3, N); 
 	
 
-	 br_i31_encode(x, xlen, mq);
+	 br_i31_encode(x, xlen, mq+4*fwlen);
 
 	/*
 	 * The only error conditions remaining at that point are invalid
