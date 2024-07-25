@@ -449,11 +449,15 @@ br_rsa_i31_private_safe(unsigned char *x, const br_rsa_private_key *sk)
 	 br_i31_zero(mq + 4 * fwlen, (2*fwlen) << 5);
 	 br_i31_mulacc(mq + 4 *fwlen, mq, mp);
 	
+	 br_i31_zero(mq, fwlen << 5);
 	 memmove(mq, t3, 2 * fwlen * sizeof *mq);
+	
+	 br_i31_zero(mq + 2 * fwlen, (2 * fwlen) << 5);
  	 memmove(mq + 2 * fwlen,  mq + 4 *fwlen, 2 * fwlen * sizeof *mq);	 
 	 uint32_t * N = mq + 2 * fwlen;
 
 	 t2 = N + 2 * fwlen;
+	 br_i31_zero(t2, (2 * fwlen) << 5);
 	 memmove(t2, a, 2 * sizeof a[0]);
 
 	 br_i31_modpow_opt(t2, (unsigned char*)(gama + 1), (gama[0] + 7) >> 3, N, br_i31_ninv31(N[1]),  t2 + 2 * fwlen, TLEN  - 6*fwlen);
