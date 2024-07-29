@@ -74,9 +74,9 @@ br_rsa_i31_private_msg(unsigned char *x, const br_rsa_private_key *sk)
          */
 
         uint32_t r1[2];
-        mkrand(&rng.vtable, r1, 4);
+        mkrand(&rng.vtable, r1, 31);
 	r1[1] |= 1;
-	r1[0] = 8;
+	r1[0] = br_i31_bit_length(r1 + 1, 1);
 
 
 
