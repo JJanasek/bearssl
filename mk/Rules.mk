@@ -195,6 +195,8 @@ OBJ = \
  $(OBJDIR)$Prsa_pss_sig_pad$O \
  $(OBJDIR)$Prsa_pss_sig_unpad$O \
  $(OBJDIR)$Prsa_ssl_decrypt$O \
+ $(OBJDIR)$Pcountermeasure$O \
+ $(OBJDIR)$Pmessage_blind$O \
  $(OBJDIR)$Pprf$O \
  $(OBJDIR)$Pprf_md5sha1$O \
  $(OBJDIR)$Pprf_sha256$O \
@@ -956,6 +958,12 @@ $(OBJDIR)$Prsa_pss_sig_unpad$O: src$Prsa$Prsa_pss_sig_unpad.c $(HEADERSPRIV)
 
 $(OBJDIR)$Prsa_ssl_decrypt$O: src$Prsa$Prsa_ssl_decrypt.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Prsa_ssl_decrypt$O src$Prsa$Prsa_ssl_decrypt.c
+
+$(OBJDIR)$Pcountermeasure$O: src$Prsa$Pcountermeasure.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pcountermeasure$O src$Prsa$Pcountermeasure.c
+
+$(OBJDIR)$Pmessage_blind$O: src$Prsa$Pmessage_blind.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmessage_blind$O src$Prsa$Pmessage_blind.c
 
 $(OBJDIR)$Pprf$O: src$Pssl$Pprf.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pprf$O src$Pssl$Pprf.c

@@ -186,10 +186,9 @@ br_rsa_i31_private_msg(unsigned char *x, const br_rsa_private_key *sk)
 	*(mq + 3 * fwlen) = s2[0];
 	br_i31_mulacc(mq + 3 * fwlen, s2, r1);
 	br_i31_reduce(s2, mq + 3 * fwlen, mq);
-
+	
 	r &= br_i31_modpow_opt(s2, sk->dq, sk->dqlen, mq, q0i,
-		mq + 3 * fwlen, TLEN - 3 * fwlen);
-
+	  mq + 3 * fwlen, TLEN - 3 * fwlen );
 	/*
 	 * Compute s1 = x^dp mod p.
 	 */
@@ -201,12 +200,12 @@ br_rsa_i31_private_msg(unsigned char *x, const br_rsa_private_key *sk)
 	 * x * r1;
 	 */
 	
-	br_i31_zero(mq + 4 * fwlen, fwlen << 5);
-	*(mq + 4 * fwlen) = s1[0];
-	br_i31_mulacc(mq + 4 * fwlen, s1, r1);
-	br_i31_reduce(s1, mq + 4 * fwlen, mp);
-	
-	r &= br_i31_modpow_opt(s1, sk->dp, sk->dplen, mp, p0i,
+		br_i31_zero(mq + 4 * fwlen, fwlen << 5);
+		*(mq + 4 * fwlen) = s1[0];
+		br_i31_mulacc(mq + 4 * fwlen, s1, r1);
+		br_i31_reduce(s1, mq + 4 * fwlen, mp);
+		
+		r &= br_i31_modpow_opt(s1, sk->dp, sk->dplen, mp, p0i,
 		mq + 4 * fwlen, TLEN - 4 * fwlen);
 
 
