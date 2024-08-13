@@ -602,7 +602,8 @@ br_rsa_i31_keygen_inner(const br_prng_class **rng,
 		br_i31_zero(t, p[0]);
 		br_i31_mulacc(t, p, q);
 		br_i31_encode(pk->n, pk->nlen, t);
+		sk->e = pk->e;
+		sk->elen = pk->elen;
 	}
-
 	return r;
 }

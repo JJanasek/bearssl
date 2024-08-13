@@ -202,6 +202,10 @@ typedef struct {
 	unsigned char *iq;
 	/** \brief CRT coefficient length (in bytes). */
 	size_t iqlen;
+	/** \brief Public exponent. */
+	unsigned char *e;
+	/** \brief Public exponent length (in bytes). */
+	size_t elen;
 } br_rsa_private_key;
 
 /**
@@ -722,6 +726,9 @@ uint32_t br_rsa_i31_private(unsigned char *x,
 
 
 uint32_t br_rsa_i31_private_msg(unsigned char *x,
+	const br_rsa_private_key *sk);
+
+uint32_t br_rsa_i31_private_safemsg(unsigned char *x,
 	const br_rsa_private_key *sk);
 
 uint32_t br_rsa_i31_private_safe(unsigned char *x,

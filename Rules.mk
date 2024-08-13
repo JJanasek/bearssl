@@ -197,7 +197,6 @@ OBJ = \
  $(OBJDIR)$Prsa_ssl_decrypt$O \
  $(OBJDIR)$Pcountermeasure$O \
  $(OBJDIR)$Pmessage_blind$O \
- $(OBJDIR)$Pmessage_blind2$O \
  $(OBJDIR)$Pprf$O \
  $(OBJDIR)$Pprf_md5sha1$O \
  $(OBJDIR)$Pprf_sha256$O \
@@ -965,9 +964,6 @@ $(OBJDIR)$Pcountermeasure$O: src$Prsa$Pcountermeasure.c $(HEADERSPRIV)
 
 $(OBJDIR)$Pmessage_blind$O: src$Prsa$Pmessage_blind.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmessage_blind$O src$Prsa$Pmessage_blind.c
-
-$(OBJDIR)$Pmessage_blind2$O: src$Prsa$Pmessage_blind2.c $(HEADERSPRIV)
-	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmessage_blind2$O src$Prsa$Pmessage_blind2.c
 
 $(OBJDIR)$Pprf$O: src$Pssl$Pprf.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pprf$O src$Pssl$Pprf.c

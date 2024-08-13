@@ -5318,7 +5318,8 @@ static const br_rsa_private_key RSA_SK = {
 	(void *)RSA_Q, sizeof RSA_Q,
 	(void *)RSA_DP, sizeof RSA_DP,
 	(void *)RSA_DQ, sizeof RSA_DQ,
-	(void *)RSA_IQ, sizeof RSA_IQ
+	(void *)RSA_IQ, sizeof RSA_IQ,
+	(void *)RSA_E, sizeof RSA_E
 };
 
 /*
@@ -5463,7 +5464,8 @@ static const br_rsa_private_key RSA2048_SK = {
 	(void *)RSA2048_Q, sizeof RSA2048_Q,
 	(void *)RSA2048_DP, sizeof RSA2048_DP,
 	(void *)RSA2048_DQ, sizeof RSA2048_DQ,
-	(void *)RSA2048_IQ, sizeof RSA2048_IQ
+	(void *)RSA2048_IQ, sizeof RSA2048_IQ,
+	(void *)RSA2048_E, sizeof RSA2048_E
 };
 
 /*
@@ -5720,7 +5722,9 @@ static const br_rsa_private_key RSA4096_SK = {
 	(void *)RSA4096_Q, sizeof RSA4096_Q,
 	(void *)RSA4096_DP, sizeof RSA4096_DP,
 	(void *)RSA4096_DQ, sizeof RSA4096_DQ,
-	(void *)RSA4096_IQ, sizeof RSA4096_IQ
+	(void *)RSA4096_IQ, sizeof RSA4096_IQ,
+	(void *)RSA4096_E, sizeof RSA4096_E
+
 };
 
 static void
@@ -5743,6 +5747,32 @@ test_RSA_core(const char *name, br_rsa_public fpub, br_rsa_private fpriv)
 		exit(EXIT_FAILURE);
 	}
 	check_equals("KAT RSA pub", t2, t3, len);
+	
+	unsigned char p[1] = {5};
+    	unsigned char q[1] = {7};
+    	unsigned char dp = 17;
+    	unsigned char dq = 17;
+    	unsigned char iq = 3;
+	unsigned char m[1] = {1};
+	unsigned char e[1] = {33};
+    	// Initialize the structure within the function
+    	br_rsa_private_key test = {
+        	.n_bitlen = 6,
+        	.p = p,
+        	.plen = 1,
+        	.q = q,
+        	.qlen = 1,
+        	.dp = &dp,
+       	 	.dplen = 1,
+        	.dq = &dq,
+        	.dqlen = 1,
+        	.iq = &iq,
+        	.iqlen = 1,
+		.e = e,
+		.elen = 1
+	    };
+	
+
 	if (!fpriv(t3, &RSA_SK)) {
 		fprintf(stderr, "RSA private operation failed (1)\n");
 		exit(EXIT_FAILURE);
@@ -6975,7 +7005,7 @@ test_RSA_i31(void)
 static void
 test_RSA_safe(void)
 {
-	test_RSA_core("RSA i31 safe", &br_rsa_i31_public, &br_rsa_i31_private_safe);
+	test_RSA_core("RSA i31 safe", &br_rsa_i31_public, &br_rsa_i31_private_safemsg);
 }
 
 static void

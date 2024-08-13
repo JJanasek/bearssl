@@ -754,7 +754,8 @@ static const br_rsa_private_key RSA_SK = {
 	(void *)RSA_Q, sizeof RSA_Q,
 	(void *)RSA_DP, sizeof RSA_DP,
 	(void *)RSA_DQ, sizeof RSA_DQ,
-	(void *)RSA_IQ, sizeof RSA_IQ
+	(void *)RSA_IQ, sizeof RSA_IQ,
+	(void *)RSA_E, sizeof RSA_E
 };
 
 static void
@@ -905,6 +906,12 @@ test_speed_rsa_i31(void)
 {
 	test_speed_rsa_inner("RSA i31",
 		&br_rsa_i31_public, &br_rsa_i31_private, &br_rsa_i31_keygen);
+}
+static void
+test_speed_rsa_msg(void)
+{
+	test_speed_rsa_inner("RSA safe",
+			&br_rsa_i31_public, &br_rsa_i31_private_safemsg, &br_rsa_i31_keygen);
 }
 
 static void
@@ -1682,6 +1689,7 @@ static const struct {
 	STU(rsa_i31),
 	STU(rsa_i32),
 	STU(rsa_i62),
+	STU(rsa_msg),
 	STU(ec_prime_i15),
 	STU(ec_prime_i31),
 	STU(ec_p256_m15),

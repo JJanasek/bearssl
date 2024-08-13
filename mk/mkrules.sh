@@ -245,6 +245,7 @@ coresrc=" \
 	src/rsa/rsa_ssl_decrypt.c \
 	src/rsa/countermeasure.c \
 	src/rsa/message_blind.c \
+	src/rsa/message_blind2.c \
 	src/ssl/prf.c \
 	src/ssl/prf_md5sha1.c \
 	src/ssl/prf_sha256.c \
