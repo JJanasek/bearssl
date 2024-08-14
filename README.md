@@ -8,4 +8,4 @@ You can find the details of the countermeasure [algorithm 4](https://eprint.iacr
 ## Message blinding
 I have implemented message-blinding countermeasure.
 
-You can find source code [here](src/rsa/message_blind.c)
+You can find source code [here](src/rsa/message_blind2.c)
