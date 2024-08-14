@@ -47,6 +47,35 @@ mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
         }
 }
 
+
+size_t blind_exponent(unsigned char * x, const unsigned char* d, const size_t size, uint32_t * m, uint32_t * t1){
+
+	br_hmac_drbg_context rng;
+	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA BLIND", 18);
+	
+	uint32_t r[2];
+	mkrand(&rng.vtable, r, 31);
+	r[1] |= 1;
+	r[0] = br_i31_bit_length(r + 1, 1);
+	
+	br_i31_zero(t1, m[0]);
+	br_i31_decode(t1, d, size);
+	t1[0] = m[0];
+
+	m[1] ^= 1;	
+	size_t xlen = (m[0] + 7) >> 3; 
+	// store in t1 = d + r * phi(m)
+	
+	br_i31_mulacc(t1, m, r);
+	m[1] ^= 1;
+
+	xlen = (t1[0] + 7) >> 3;
+	
+	br_i31_encode(x, xlen, t1);
+	return xlen;
+}
+
+
 /* see bearssl_rsa.h */
 uint32_t
 br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
@@ -68,7 +97,7 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 
 
 	uint32_t r1[2];
-	mkrand(&rng.vtable, r1, 2);
+	mkrand(&rng.vtable, r1, 31);
 	r1[1] |= 1;
 	r1[0] = br_i31_bit_length(r1 + 1, 1);
 
@@ -207,18 +236,23 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	 * Compute s2 = x^dq mod q.
 	 */
 	q0i = br_i31_ninv31(mq[1]);
+
+	unsigned char* dq = (unsigned char *) (tmp + 6 *fwlen); 
+	size_t dqlen = blind_exponent(dq, sk->dq, sk->dqlen, mq, tmp + 7 * fwlen);
 	//br_i31_decode_reduce(s2, x, xlen, mq);
-	r &= br_i31_modpow_opt(s2, sk->dq, sk->dqlen, mq, q0i,
-		tmp + 6 * fwlen, TLEN - 6 * fwlen);
+	r &= br_i31_modpow_opt(s2, dq, dqlen, mq, q0i,
+		tmp + 7 * fwlen, TLEN - 7 * fwlen);
 
 	/*
 	 * Compute s1 = x^dp mod p.
 	 */
 	p0i = br_i31_ninv31(mp[1]);
+	unsigned char* dp = (unsigned char *) (tmp + 6 *fwlen); 
+	size_t dplen = blind_exponent(dp, sk->dp, sk->dplen, mp, tmp + 7 * fwlen);
 	//s1 = c_prime;
 	//br_i31_decode_reduce(s1, x, xlen, mp);
-	r &= br_i31_modpow_opt(s1, sk->dp, sk->dplen, mp, p0i,
-		tmp + 6 * fwlen, TLEN - 6 * fwlen);
+	r &= br_i31_modpow_opt(s1, dp, dplen, mp, p0i,
+		tmp + 7 * fwlen, TLEN - 7 * fwlen);
 
 	/*
 	 * Compute:
