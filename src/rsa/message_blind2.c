@@ -190,6 +190,9 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	}
 	
 	
+	/*
+	 * Compute (r^e * C) (mod n)
+	 */	
 	
 	uint32_t *n = t2;
 	uint32_t *c = t3;
@@ -215,12 +218,17 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	mq = tmp + 4 * fwlen;
 	mp = tmp + 5 * fwlen;
 
+
+
 	br_i31_decode(mq, sk->q, sk->qlen);
 	br_i31_decode(mp, sk->p, sk->plen);
 
 	s2 = tmp;
 	s1 = tmp + fwlen;
-
+	/*
+	 * store C' = r^e * C in s1 (mod p)
+	 * store C' = r^e * C in s2 (mod q)
+	 */
 
 	br_i31_reduce(s1, c_prime, mp);
 	br_i31_reduce(s2, c_prime, mq);
