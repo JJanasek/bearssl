@@ -22,11 +22,14 @@
  * SOFTWARE.
  */
 
-#include "../../inc/bearssl.h"
+#include "bearssl.h"
 #include "inner.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <gmp.h>
 
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
-#define TLEN   (14 * U)
+#define TLEN   (66 * U)
 
 static void
 mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
@@ -46,22 +49,45 @@ mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
                 x[len] &= 0x7FFFFFFF >> (31 - m);
         }
 }
+static void print(const uint32_t *x){
+	unsigned char buf[1024];
+	size_t bit_len = x[0];
+    	size_t len = (bit_len + 7) / 8;
+	br_i31_encode(buf, len, x);
+ 	
+	mpz_t big_int;
+	mpz_init(big_int);
+	mpz_import(big_int, len, 1, 1, 1, 0, buf);
+	char *decimal_str = mpz_get_str(NULL, 10, big_int);
+	printf("%s\n", decimal_str);
+	mpz_clear(big_int);
+	free(decimal_str);
+}
 
 
-size_t blind_exponent(unsigned char * x, const unsigned char* d, const size_t size, uint32_t * m, uint32_t * t1){
+static void print2(const unsigned char *x, int len){
+	
+	mpz_t big_int;
+	mpz_init(big_int);
+	mpz_import(big_int, len, 1, 1, 1, 0, x);
+	char *decimal_str = mpz_get_str(NULL, 10, big_int);
+	printf("%s\n", decimal_str);
+	mpz_clear(big_int);
+	free(decimal_str);
+}
+
+static size_t blind_exponent(unsigned char * x, const unsigned char* d, const size_t size, uint32_t * m, uint32_t * t1){
 
 	br_hmac_drbg_context rng;
 	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA BLIND", 18);
 	
-	uint32_t r[2];
-	mkrand(&rng.vtable, r, 31);
-	r[1] |= 1;
+	uint32_t r[4];
+	mkrand(&rng.vtable, r, 80);
 	r[0] = br_i31_bit_length(r + 1, 1);
 	
 	br_i31_zero(t1, m[0]);
 	br_i31_decode(t1, d, size);
 	t1[0] = m[0];
-
 	m[1] ^= 1;	
 	size_t xlen = (m[0] + 7) >> 3; 
 	// store in t1 = d + r * phi(m)
@@ -90,16 +116,15 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	uint32_t *mp, *mq, *s1, *s2, *t1, *t2, *t3;
 	uint32_t r;
 
-
+	mq = tmp;
 	br_hmac_drbg_context rng;
-
 	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);
+	
 
-
-	uint32_t r1[2];
-	mkrand(&rng.vtable, r1, 31);
-	r1[1] |= 1;
+	uint32_t r1[4];
+	mkrand(&rng.vtable, r1, 80);
 	r1[0] = br_i31_bit_length(r1 + 1, 1);
+	
 
 	/*
 	 * Compute the actual lengths of p and q, in bytes.
@@ -123,7 +148,7 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	 * Compute the maximum factor length, in words.
 	 */
 	z = (long)(plen > qlen ? plen : qlen) << 3;
-	fwlen = 1;
+	fwlen = 1 + 3 + 4;
 	while (z > 0) {
 		z -= 31;
 		fwlen ++;
@@ -137,7 +162,7 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	/*
 	 * We need to fit at least 6 values in the stack buffer.
 	 */
-	if (10 * fwlen > TLEN) {
+	if (20 * fwlen > TLEN) {
 		return 0;
 	}
 
@@ -151,13 +176,11 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	 */
 	mq = tmp;
 	br_i31_decode(mq, q, qlen);
-
 	/*
 	 * Decode p.
 	 */
 	t1 = mq + fwlen;
 	br_i31_decode(t1, p, plen);
-
 	/*
 	 * Compute the modulus (product of the two factors), to compare
 	 * it with the source value. We use br_i31_mulacc(), since it's
@@ -166,7 +189,7 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	t2 = mq + 2 * fwlen;
 	br_i31_zero(t2, mq[0]);
 	br_i31_mulacc(t2, mq, t1);
-
+	
 	/*
 	 * We encode the modulus into bytes, to perform the comparison
 	 * with bytes. We know that the product length, in bytes, is
@@ -203,7 +226,7 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	br_i31_decode_reduce(c, x, xlen, n);
 	
 	br_i31_zero(r_to_e, n[0]);
-	memcpy(r_to_e + 1, r1 + 1,  ((*r1 + 31) >> 5) * sizeof *r1 );
+	memcpy(r_to_e + 1, r1 + 1,  ((*r1 + 7) >> 3));
 	r_to_e[0] = n[0];
 
 	r &= br_i31_modpow_opt(r_to_e, sk->e,sk->elen, n,  br_i31_ninv31(n[1]), mq + 8 * fwlen, TLEN - 8 * fwlen);
@@ -248,20 +271,30 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	unsigned char* dq = (unsigned char *) (tmp + 6 *fwlen); 
 	size_t dqlen = blind_exponent(dq, sk->dq, sk->dqlen, mq, tmp + 7 * fwlen);
 	//br_i31_decode_reduce(s2, x, xlen, mq);
-	r &= br_i31_modpow_opt(s2, dq, dqlen, mq, q0i,
+	printf("x: ");
+	print(s2);
+	printf("d: ");
+	print2(dq, dqlen);
+	printf("m: ");
+	print(mq);
+	r &= br_i31_modpow_opt_rand(s2, dq, dqlen, mq, q0i,
 		tmp + 7 * fwlen, TLEN - 7 * fwlen);
-
+	printf("res: ");
+	print(s2);
+	printf("r: %d\n", r);
 	/*
 	 * Compute s1 = x^dp mod p.
 	 */
 	p0i = br_i31_ninv31(mp[1]);
 	unsigned char* dp = (unsigned char *) (tmp + 6 *fwlen); 
 	size_t dplen = blind_exponent(dp, sk->dp, sk->dplen, mp, tmp + 7 * fwlen);
+	printf("r: %d\n", r);
+
 	//s1 = c_prime;
 	//br_i31_decode_reduce(s1, x, xlen, mp);
 	r &= br_i31_modpow_opt(s1, dp, dplen, mp, p0i,
 		tmp + 7 * fwlen, TLEN - 7 * fwlen);
-
+	printf("r: %d\n", r);
 	/*
 	 * Compute:
 	 *   h = (s1 - s2)*(1/q) mod p
@@ -299,7 +332,8 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	br_i31_mulacc(t3, mq, t2);
 	t1 = tmp + 4 * fwlen;
 	br_i31_zero(t1, n[0]);
-	t1[1] = r1[1];
+//	t1[1] = r1[1];
+	memcpy(t1 + 1, r1 + 1, (*r1 + 7) >> 3);
 	t3[0] = t1[0];
 	r &= br_i31_moddiv(t3, t1, n, br_i31_ninv31(n[1]), tmp + 6 * fwlen);
 
