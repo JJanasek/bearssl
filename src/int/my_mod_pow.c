@@ -52,7 +52,7 @@ mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
 static void print(const uint32_t *x){
 	unsigned char buf[1024];
 	size_t bit_len = x[0];
-    	size_t len = (bit_len + 7) / 8;
+    	size_t len = (bit_len + 7)  >> 3;
 	br_i31_encode(buf, len, x);
  	
 	mpz_t big_int;
@@ -64,18 +64,16 @@ static void print(const uint32_t *x){
 	free(decimal_str);
 }
 
-static void create_blind(uint32_t *dest, uint32_t *x, uint32_t *mod, uint32_t* tmp, uint32_t*rand){
-	br_i31_zero(dest, mod[0]);
+static void create_blind(uint32_t *dest, const uint32_t *x, const uint32_t *mod, uint32_t* tmp, uint32_t*rand){
+	
 	br_i31_zero(tmp, mod[0]);
 	tmp[1] = 1;
-	rand[1] |= 1;
+	//rand[1] |= 1;
+	tmp[0] = mod[0];
 	br_i31_mulacc(tmp, mod, rand);
-	//printf("ONE:");
-	//print(tmp);
-	//printf("x:");
-	//print(x);
-	//printf("\n");
-	br_i31_mulacc(dest, mod, rand);
+	br_i31_zero(dest, tmp[0]);
+
+	br_i31_mulacc(dest, tmp, x);
 }
 
 
@@ -110,14 +108,20 @@ br_i31_modpow_opt_rand(uint32_t *x,
 	
 
 	mkrand(&rng.vtable, r, 64);
-	r[1] ^= ~(r[1]^1);
+	r[1] ^= ~(r[1]^1) & 0x7FFFFFFF;
+	//r[1] |= 1;
 	r[0] = br_i31_bit_length(r + 1, 1);
+	printf("r:\n");
+	print(r);
+	
 
 	/*
 	 * curr_m = m * (r*m + 1), r is even, m is prime
 	 */
-	br_i31_zero(curr_m, m[0] * 2);
-	create_blind(curr_m, m, m, t1, r);
+	//br_i31_zero(curr_m, m[0]);
+	//create_blind(curr_m, m, m, t1, r);
+	curr_m = m;
+	//br_i31_mulacc(curr_m, m, r);
 	m0i = br_i31_ninv31(curr_m[1]);
 
 
@@ -150,6 +154,7 @@ br_i31_modpow_opt_rand(uint32_t *x,
 	
 	print(curr_m);
 	printf("\n");
+	
 	/*
 	 * Compute possible window size, with a maximum of 5 bits.
 	 * When the window has size 1 bit, we use a specific code
@@ -191,21 +196,21 @@ br_i31_modpow_opt_rand(uint32_t *x,
 		memcpy(t2 + mwlen, res, mlen);
 		base = t2 + mwlen;
 		for (u = 2; u < ((unsigned)1 << win_len); u ++) {
-			br_i31_from_monty(x, curr_m, m0i);
+			/*br_i31_from_monty(x, curr_m, m0i);
 			printf("x: ");
 			print(x);
 			br_i31_to_monty(x, curr_m);
 			br_i31_from_monty(base, curr_m, m0i);
 			printf("base: ");
 			print(base);
-			br_i31_to_monty(base, curr_m);
+			br_i31_to_monty(base, curr_m);*/
 			br_i31_montymul(base + mwlen, base, res, curr_m, m0i);
-			br_i31_from_monty(base + mwlen, curr_m, m0i);
+			/*br_i31_from_monty(base + mwlen, curr_m, m0i);
 			printf("base + mwlen: ");
 			print(base + mwlen);
-			br_i31_to_monty(base + mwlen, curr_m);
+			br_i31_to_monty(base + mwlen, curr_m);*/
 			base += mwlen;
-			printf("\n\n");
+			//printf("\n\n");
 		}
 	}
 	/*
@@ -217,10 +222,14 @@ br_i31_modpow_opt_rand(uint32_t *x,
 	printf("curr_m??:");
 	print(curr_m);
 	printf("m0i: %d\n", m0i);
+	printf("mwlen: %d\n", (curr_m[0] + 31) >> 5);
+
 	br_i31_zero(res, curr_m[0]);
 	res[(curr_m[0] + 31) >> 5] = 1;
+	print(res);
+	printf("%d, %d\n", curr_m[0], res[0]);
 	br_i31_muladd_small(res, 0, curr_m);
-
+	print(res);
 	
 	res[0] = curr_m[0];
 	br_i31_from_monty(res, curr_m, br_i31_ninv31(curr_m[1]));
@@ -259,12 +268,24 @@ br_i31_modpow_opt_rand(uint32_t *x,
 		 */
 		printf("x: ");
 		print(res);
+		printf("\n");
+		for(int i = 0; i < (res[0] + 63) >> 5; ++i){
+			printf("%d,",res[i]);
+		}
+		printf("\n");
 		printf("mod: ");
-		print(curr_m);
-		
+		//print(curr_m);
+		for(int i = 0; i < (curr_m[0] + 63) >> 5; ++i){
+			printf("%d,",curr_m[i]);
+		}
+		printf("\n");
+
+
 		mkrand(&rng.vtable, r, 64);
-		r[1] ^= ~(r[1]^1);
+		r[1] ^= ~(r[1]^1) & 0x7FFFFFFF;
 		r[0] = br_i31_bit_length(r + 1, 1);
+		printf("r:\n");
+		print(r);
 		
 		//create_blind(new_m, curr_m, curr_m, t1, r);
 		//new_m0i = br_i31_ninv31(new_m[1]);
@@ -312,21 +333,36 @@ br_i31_modpow_opt_rand(uint32_t *x,
 		printf("t2: ");
 		print(t2);
 		printf("\n");
+		for(int i = 0; i < (t2[0] + 63) >> 5; ++i){
+			printf("%d,",t2[i]);
+		}
+		printf("\n");
+		printf("\n");
 		
 		
 
 
-		/*uint32_t* mask_res = new_m + 2 * mwlen;
+		uint32_t* mask_res = new_m + 2 * mwlen;
 		create_blind(mask_res, res, new_m, t1, r);
-
+		
 		uint32_t* mask_t2 = new_m + 4 * mwlen;
 		create_blind(mask_t2, t2, new_m, t1, r);
 		printf("mask_res: ");
 		print(mask_res);
-
+		printf("\n");
+		for(int i = 0; i < (mask_res[0] + 63) >> 5; ++i){
+			printf("%d,",mask_res[i]);
+		}
+		printf("\n");
 		printf("mask_rt2: ");
+		printf("\n");
 		print(mask_t2);
-		*/
+		printf("\n");
+		for(int i = 0; i < (mask_t2[0] + 63) >> 5; ++i){
+			printf("%d,",mask_t2[i]);
+		}
+		printf("\n");
+
 
 		printf("\n");
 		
@@ -334,16 +370,16 @@ br_i31_modpow_opt_rand(uint32_t *x,
 
 		br_i31_montymul(t1, t2, res, new_m,  new_m0i);
 
-		printf("AFTER MUL\n");
-		printf("AFTER t1: ");
-		print(t1);
-		printf("AFTER x: ");
-		print(res);
+		//printf("AFTER MUL\n");
+		//printf("AFTER t1: ");
+		//print(t1);
+		//printf("AFTER x: ");
+		//print(res);
 
 		CCOPY(NEQ(bits, 0), res, t1, mlen);
 
-		printf("COPY x: ");
-		print(res);
+		//printf("COPY x: ");
+		//print(res);
 		
 	}
 
