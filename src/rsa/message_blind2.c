@@ -29,7 +29,7 @@
 #include <gmp.h>
 
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
-#define TLEN   (66 * U)
+#define TLEN   (24 * U)
 
 static void
 mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
@@ -82,8 +82,8 @@ static size_t blind_exponent(unsigned char * x, const unsigned char* d, const si
 	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA BLIND", 18);
 	
 	uint32_t r[4];
-	mkrand(&rng.vtable, r, 80);
-	r[0] = br_i31_bit_length(r + 1, 1);
+	mkrand(&rng.vtable, r, 64);
+	r[0] = br_i31_bit_length(r + 1, 2);
 	
 	br_i31_zero(t1, m[0]);
 	br_i31_decode(t1, d, size);
@@ -122,8 +122,8 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	
 
 	uint32_t r1[4];
-	mkrand(&rng.vtable, r1, 80);
-	r1[0] = br_i31_bit_length(r1 + 1, 1);
+	mkrand(&rng.vtable, r1, 64);
+	r1[0] = br_i31_bit_length(r1 + 1, 2);
 	
 
 	/*
@@ -148,7 +148,7 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	 * Compute the maximum factor length, in words.
 	 */
 	z = (long)(plen > qlen ? plen : qlen) << 3;
-	fwlen = 1 + 3 + 4;
+	fwlen = 1 + 3 + 8;
 	while (z > 0) {
 		z -= 31;
 		fwlen ++;
@@ -271,30 +271,30 @@ br_rsa_i31_private_safemsg(unsigned char *x, const br_rsa_private_key *sk)
 	unsigned char* dq = (unsigned char *) (tmp + 6 *fwlen); 
 	size_t dqlen = blind_exponent(dq, sk->dq, sk->dqlen, mq, tmp + 7 * fwlen);
 	//br_i31_decode_reduce(s2, x, xlen, mq);
-	printf("x: ");
-	print(s2);
-	printf("d: ");
-	print2(dq, dqlen);
-	printf("m: ");
-	print(mq);
+	//printf("x: ");
+	//print(s2);
+	//printf("d: ");
+	//print2(dq, dqlen);
+	//printf("m: ");
+	//print(mq);
 	r &= br_i31_modpow_opt_rand(s2, dq, dqlen, mq, q0i,
 		tmp + 7 * fwlen, TLEN - 7 * fwlen);
-	printf("res: ");
-	print(s2);
-	printf("r: %d\n", r);
+	//printf("res: ");
+	//print(s2);
+	//printf("r: %d\n", r);
 	/*
 	 * Compute s1 = x^dp mod p.
 	 */
 	p0i = br_i31_ninv31(mp[1]);
 	unsigned char* dp = (unsigned char *) (tmp + 6 *fwlen); 
 	size_t dplen = blind_exponent(dp, sk->dp, sk->dplen, mp, tmp + 7 * fwlen);
-	printf("r: %d\n", r);
+	//printf("r: %d\n", r);
 
 	//s1 = c_prime;
 	//br_i31_decode_reduce(s1, x, xlen, mp);
-	r &= br_i31_modpow_opt(s1, dp, dplen, mp, p0i,
+	r &= br_i31_modpow_opt_rand(s1, dp, dplen, mp, p0i,
 		tmp + 7 * fwlen, TLEN - 7 * fwlen);
-	printf("r: %d\n", r);
+	//printf("r: %d\n", r);
 	/*
 	 * Compute:
 	 *   h = (s1 - s2)*(1/q) mod p
