@@ -5748,37 +5748,12 @@ test_RSA_core(const char *name, br_rsa_public fpub, br_rsa_private fpriv)
 	}
 	check_equals("KAT RSA pub", t2, t3, len);
 	
-	unsigned char p[1] = {5};
-    	unsigned char q[1] = {7};
-    	unsigned char dp = 17;
-    	unsigned char dq = 17;
-    	unsigned char iq = 3;
-	unsigned char m[1] = {1};
-	unsigned char e[1] = {33};
-    	// Initialize the structure within the function
-    	br_rsa_private_key test = {
-        	.n_bitlen = 6,
-        	.p = p,
-        	.plen = 1,
-        	.q = q,
-        	.qlen = 1,
-        	.dp = &dp,
-       	 	.dplen = 1,
-        	.dq = &dq,
-        	.dqlen = 1,
-        	.iq = &iq,
-        	.iqlen = 1,
-		.e = e,
-		.elen = 1
-	    };
 	
-
 	if (!fpriv(t3, &RSA_SK)) {
 		fprintf(stderr, "RSA private operation failed (1)\n");
 		exit(EXIT_FAILURE);
 	}
 	check_equals("KAT RSA priv (1)", t1, t3, len);
-
 	/*
 	 * Another KAT test, with a (fake) hash value slightly different
 	 * (last byte is 0xD9 instead of 0xD3).
@@ -5846,7 +5821,6 @@ test_RSA_core(const char *name, br_rsa_public fpub, br_rsa_private fpriv)
 		exit(EXIT_FAILURE);
 	}
 	check_equals("KAT RSA priv (2048)", t1, t3, len);
-
 	/*
 	 * RSA-4096 test vector.
 	 */
@@ -5864,7 +5838,7 @@ test_RSA_core(const char *name, br_rsa_public fpub, br_rsa_private fpriv)
 	}
 	check_equals("KAT RSA priv (4096)", t1, t3, len);
 
-	printf("done.\n");
+	printf("indeed done.\n");
 	fflush(stdout);
 }
 
@@ -7005,7 +6979,7 @@ test_RSA_i31(void)
 static void
 test_RSA_safe(void)
 {
-	test_RSA_core("RSA i31 safe", &br_rsa_i31_public, &br_rsa_i31_private_safemsg);
+	test_RSA_core("RSA i31 safe", &br_rsa_i31_public, &br_rsa_i31_private_mod_rand);
 }
 
 static void

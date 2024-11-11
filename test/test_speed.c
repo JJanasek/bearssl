@@ -911,7 +911,7 @@ static void
 test_speed_rsa_msg(void)
 {
 	test_speed_rsa_inner("RSA safe",
-			&br_rsa_i31_public, &br_rsa_i31_private_safemsg, &br_rsa_i31_keygen);
+			&br_rsa_i31_public, &br_rsa_i31_private_mod_rand, &br_rsa_i31_keygen);
 }
 
 static void
