@@ -25,7 +25,7 @@
 #include "inner.h"
 #include "../../inc/bearssl.h"
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
-#define TLEN   (10 * U)
+#define TLEN   (24 * U)
 
 
 
@@ -48,6 +48,30 @@ mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
         }
 }
 
+static size_t blind_exponent(unsigned char * x, const unsigned char* d, const size_t size, uint32_t * m, uint32_t * t1){
+
+	br_hmac_drbg_context rng;
+	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA BLIND", 18);
+	
+	uint32_t r[4];
+	mkrand(&rng.vtable, r, 64);
+	r[0] = br_i31_bit_length(r + 1, 2);
+	
+	br_i31_zero(t1, m[0]);
+	br_i31_decode(t1, d, size);
+	t1[0] = m[0];
+	m[1] ^= 1;	
+	size_t xlen = (m[0] + 7) >> 3; 
+	// store in t1 = d + r * phi(m)
+	
+	br_i31_mulacc(t1, m, r);
+	m[1] ^= 1;
+
+	xlen = (t1[0] + 7) >> 3;
+	
+	br_i31_encode(x, xlen, t1);
+	return xlen;
+}
 
 
 /* see bearssl_rsa.h */
@@ -63,22 +87,16 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	long z;
 	uint32_t *mp, *mq, *s1, *s2, *t1, *t2, *t3;
 	uint32_t r;
+
+	mq = tmp;
+	br_hmac_drbg_context rng;
+	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);
 	
 
-
-	br_hmac_drbg_context rng;
-
-        br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);
-        /*
-         * Create small random numbers r1, r2, r3
-         */
-
-        uint32_t r1[2];
-        mkrand(&rng.vtable, r1, 31);
-	r1[1] |= 1;
-	r1[0] = br_i31_bit_length(r1 + 1, 1);
-
-
+	uint32_t r1[4];
+	mkrand(&rng.vtable, r1, 64);
+	r1[0] = br_i31_bit_length(r1 + 1, 2);
+	
 
 	/*
 	 * Compute the actual lengths of p and q, in bytes.
@@ -102,7 +120,7 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	 * Compute the maximum factor length, in words.
 	 */
 	z = (long)(plen > qlen ? plen : qlen) << 3;
-	fwlen = 1;
+	fwlen = 1 + 3 + 8;
 	while (z > 0) {
 		z -= 31;
 		fwlen ++;
@@ -116,7 +134,7 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	/*
 	 * We need to fit at least 6 values in the stack buffer.
 	 */
-	if (6 * fwlen > TLEN) {
+	if (20 * fwlen > TLEN) {
 		return 0;
 	}
 
@@ -130,13 +148,11 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	 */
 	mq = tmp;
 	br_i31_decode(mq, q, qlen);
-
 	/*
 	 * Decode p.
 	 */
 	t1 = mq + fwlen;
 	br_i31_decode(t1, p, plen);
-
 	/*
 	 * Compute the modulus (product of the two factors), to compare
 	 * it with the source value. We use br_i31_mulacc(), since it's
@@ -145,8 +161,7 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	t2 = mq + 2 * fwlen;
 	br_i31_zero(t2, mq[0]);
 	br_i31_mulacc(t2, mq, t1);
-
-
+	
 	/*
 	 * We encode the modulus into bytes, to perform the comparison
 	 * with bytes. We know that the product length, in bytes, is
@@ -168,48 +183,76 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 		wx = x[u];
 		r = ((wx - (wn + r)) >> 8) & 1;
 	}
+	
+	
+	/*
+	 * Compute (r^e * C) (mod n)
+	 */	
+	
+	uint32_t *n = t2;
+	uint32_t *c = t3;
+	uint32_t *c_prime = mq + 6 * fwlen;
+	uint32_t * r_to_e = mq;	
+	
+	br_i31_zero(c, n[0]);
+	br_i31_decode_reduce(c, x, xlen, n);
+	
+	br_i31_zero(r_to_e, n[0]);
+	memcpy(r_to_e + 1, r1 + 1,  ((*r1 + 7) >> 3));
+	r_to_e[0] = n[0];
 
+	r &= br_i31_modpow_opt(r_to_e, sk->e,sk->elen, n,  br_i31_ninv31(n[1]), mq + 8 * fwlen, TLEN - 8 * fwlen);
+	
+	
+	
+	br_i31_zero(c_prime, n[0]);
+	c[0] = c_prime[0];
+	br_i31_mulacc(c_prime, c, r_to_e);
+	
+	
+	mq = tmp + 4 * fwlen;
+	mp = tmp + 5 * fwlen;
+
+
+
+	br_i31_decode(mq, sk->q, sk->qlen);
+	br_i31_decode(mp, sk->p, sk->plen);
+
+	s2 = tmp;
+	s1 = tmp + fwlen;
+	/*
+	 * store C' = r^e * C in s1 (mod p)
+	 * store C' = r^e * C in s2 (mod q)
+	 */
+
+	br_i31_reduce(s1, c_prime, mp);
+	br_i31_reduce(s2, c_prime, mq);
+	
 	/*
 	 * Move the decoded p to another temporary buffer.
 	 */
-	mp = mq + 2 * fwlen;
-	memmove(mp, t1, fwlen * sizeof *t1);
+	
+	
 
 	/*
 	 * Compute s2 = x^dq mod q.
 	 */
 	q0i = br_i31_ninv31(mq[1]);
-	s2 = mq + fwlen;
-	br_i31_decode_reduce(s2, x, xlen, mq);
 
-	br_i31_zero(mq + 3 * fwlen, fwlen << 5);
-	*(mq + 3 * fwlen) = s2[0];
-	br_i31_mulacc(mq + 3 * fwlen, s2, r1);
-	br_i31_reduce(s2, mq + 3 * fwlen, mq);
-	
-	r &= br_i31_modpow_opt(s2, sk->dq, sk->dqlen, mq, q0i,
-	  mq + 3 * fwlen, TLEN - 3 * fwlen );
+	unsigned char* dq = (unsigned char *) (tmp + 6 *fwlen); 
+	size_t dqlen = blind_exponent(dq, sk->dq, sk->dqlen, mq, tmp + 7 * fwlen);
+	r &= br_i31_modpow_opt(s2, dq, dqlen, mq, q0i,
+		tmp + 7 * fwlen, TLEN - 7 * fwlen);
 	/*
 	 * Compute s1 = x^dp mod p.
 	 */
 	p0i = br_i31_ninv31(mp[1]);
-	s1 = mq + 3 * fwlen;
-	br_i31_decode_reduce(s1, x, xlen, mp);
+	unsigned char* dp = (unsigned char *) (tmp + 6 *fwlen); 
+	size_t dplen = blind_exponent(dp, sk->dp, sk->dplen, mp, tmp + 7 * fwlen);
 	
-	/*
-	 * x * r1;
-	 */
+	r &= br_i31_modpow_opt(s1, dp, dplen, mp, p0i,
+		tmp + 7 * fwlen, TLEN - 7 * fwlen);
 	
-		br_i31_zero(mq + 4 * fwlen, fwlen << 5);
-		*(mq + 4 * fwlen) = s1[0];
-		br_i31_mulacc(mq + 4 * fwlen, s1, r1);
-		br_i31_reduce(s1, mq + 4 * fwlen, mp);
-		
-		r &= br_i31_modpow_opt(s1, sk->dp, sk->dplen, mp, p0i,
-		mq + 4 * fwlen, TLEN - 4 * fwlen);
-
-
-
 	/*
 	 * Compute:
 	 *   h = (s1 - s2)*(1/q) mod p
@@ -222,61 +265,15 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	 * Since we use br_i31_decode_reduce() for iq (purportedly, the
 	 * inverse of q modulo p), we also tolerate improperly large
 	 * values for this parameter.
-	*/
-
-
-	t1 = mq + 4 * fwlen;
-	t2 = mq + 5 * fwlen;
-	
-	
-	/*
-	 * (1/r1)^dq mod mq
 	 */
-        
-	br_i31_zero(t1, fwlen << 5);
-        t1[1] = 1;
-	br_i31_zero(t2, fwlen << 5);
-	*(t2+1) = r1[1];
-        br_i31_moddiv(t1, t2, mq, br_i31_ninv31(mq[1]), t2 + fwlen);
-	br_i31_modpow_opt(t1, sk->dq, sk->dqlen, mq, q0i, mq + 5 * fwlen, TLEN - 5 * fwlen);
-	
-	/*
-	 * s2 * (1/r1)^dq
-	 */
-
-	br_i31_zero(t2, mq[0]);
-	br_i31_mulacc(t2, s2, t1);
-	br_i31_reduce(s2, t2, mq);
-	
-
-	/*
-	 * (1/r1)^dp mod mp
-	 */
-
-
-	br_i31_zero(t1, fwlen << 5);
-        t1[1] = 1;
-	br_i31_zero(t2, fwlen << 5);
-	*(t2+1) = r1[1];
-        br_i31_moddiv(t1, t2 , mp, br_i31_ninv31(mp[1]), t2 + fwlen);
-	br_i31_modpow_opt(t1, sk->dp, sk->dqlen, mp, p0i, mq + 5 * fwlen, TLEN - 5 * fwlen);
-	
-	/*
-	 * s1 * (1/r1)^dp
-	 */
-
-	br_i31_zero(t2, mp[0]);
-	br_i31_mulacc(t2, s1, t1);
-	br_i31_reduce(s1, t2, mp);
-	
-	
-	
-	br_i31_reduce(t2, s2, mp);
+	t1 = tmp + 6 * fwlen;
+	t2 = tmp + 7 * fwlen;
+	br_i31_reduce(t2, s2, mp); 
 	br_i31_add(s1, mp, br_i31_sub(s1, t2, 1));
 	br_i31_to_monty(s1, mp);
 	br_i31_decode_reduce(t1, sk->iq, sk->iqlen, mp);
 	br_i31_montymul(t2, s1, t1, mp, p0i);
-
+	
 	/*
 	 * h is now in t2. We compute the final result:
 	 *   s = s2 + q*h
@@ -291,6 +288,11 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	 */
 	t3 = s2;
 	br_i31_mulacc(t3, mq, t2);
+	t1 = tmp + 4 * fwlen;
+	br_i31_zero(t1, n[0]);
+	memcpy(t1 + 1, r1 + 1, (*r1 + 7) >> 3);
+	t3[0] = t1[0];
+	r &= br_i31_moddiv(t3, t1, n, br_i31_ninv31(n[1]), tmp + 6 * fwlen);
 
 	/*
 	 * Encode the result. Since we already checked the value of xlen,

@@ -21,7 +21,7 @@ To protect against first-order SCA attacks, I have implemented message and expon
 ---
 
 ### **3. Modulus Randomization**
-I have modified the exponentiation algorithm ([i31_modpow2.c](src/int/i31_modpow2.c)) to incorporate modulus randomization in each iteration. This modified algorithm is used in the [RSA decryption algorithm](src/rsa/modulus_randomization.c).
+I have modified the exponentiation algorithm ([i31_modpow2.c](src/int/i31_modpow2.c)) to incorporate modulus randomization in each iteration and you can see source code in ([mod_rand_pow.c](src/int/mod_rand_pow.c)). This modified algorithm is used in the [RSA decryption algorithm](src/rsa/modulus_randomization.c).
 
 ---
 
