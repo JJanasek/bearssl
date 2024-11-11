@@ -197,6 +197,9 @@ OBJ = \
  $(OBJDIR)$Prsa_ssl_decrypt$O \
  $(OBJDIR)$Pcountermeasure$O \
  $(OBJDIR)$Pmessage_blind$O \
+ $(OBJDIR)$Pmessage_blind2$O \
+ $(OBJDIR)$Palg1$O \
+ $(OBJDIR)$Pprime_gen$O \
  $(OBJDIR)$Pprf$O \
  $(OBJDIR)$Pprf_md5sha1$O \
  $(OBJDIR)$Pprf_sha256$O \
@@ -964,6 +967,15 @@ $(OBJDIR)$Pcountermeasure$O: src$Prsa$Pcountermeasure.c $(HEADERSPRIV)
 
 $(OBJDIR)$Pmessage_blind$O: src$Prsa$Pmessage_blind.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmessage_blind$O src$Prsa$Pmessage_blind.c
+
+$(OBJDIR)$Pmessage_blind2$O: src$Prsa$Pmessage_blind2.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmessage_blind2$O src$Prsa$Pmessage_blind2.c
+
+$(OBJDIR)$Palg1$O: src$Prsa$Palg1.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Palg1$O src$Prsa$Palg1.c
+
+$(OBJDIR)$Pprime_gen$O: src$Prsa$Pprime_gen.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pprime_gen$O src$Prsa$Pprime_gen.c
 
 $(OBJDIR)$Pprf$O: src$Pssl$Pprf.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pprf$O src$Pssl$Pprf.c
