@@ -38,7 +38,7 @@ MKDIR = mkdir -p
 
 # C compiler and flags.
 CC = cc
-CFLAGS = -W -Wall -Os -fPIC
+CFLAGS = -W -Wall -g -Os -fPIC
 CCOUT = -c -o 
 
 # Static library building tool.

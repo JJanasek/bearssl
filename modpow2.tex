@@ -1,0 +1,56 @@
+\documentclass[a4paper,8pt]{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{mathtools}
+\begin{document}
+
+\begin{algorithm}
+\caption{Modular Exponentiation $2^k$-ary method}\label{alg:cap}
+\begin{algorithmic}
+\Require $M \mod N$, $E$, $Elen =$ bit length of $E$, $N \geq 0$, \textit{Tmp}, \textit{TmpLen} $\geq 2 \cdot$ bit length of $N$
+\Ensure $M^E \mod N$
+
+\State \textit{NLen} $\gets$ bit length of $N$
+\State $T_1 \gets \textit{Tmp}$
+\State $T_2 \gets \textit{Tmp} + \textit{TmpLen}$
+
+\State $M \gets M \cdot R \mod N$ \Comment{Converting $M$ to Montgomery form where $R = 2^{31 \cdot w}$ and $w$ is the number of words in $M$}
+
+\State \textit{WindowLen} $\gets \min(5, \frac{\textit{TmpLen}}{\textit{NLen}})$
+\State $T_2 \gets \{ M^i \mod N \mid 1 \leq i \leq \textit{WindowLen} \}$
+\State \textit{Base} $\gets T_2 + \textit{NLen}$ \Comment{\textit{Base} points to the second element of $T_2$}
+
+\State $M \gets 1 \cdot R \mod N$ \Comment{Setting $M = 1$ in Montgomery form}
+
+\State $Acc \gets 0$
+\State $AccLen \gets 0$
+
+\While{$AccLen \ge 0$ or $Elen \ge 0$}
+    \State $K \gets \textit{WindowLen}$
+    \State Each iteration we have $AccLen$ bits of $E$ in $Acc$
+
+    \If{$AccLen \le \textit{WindowLen}$}
+        \If{$Elen \ge 0$}
+            \State $Acc \gets E[0]$ \Comment{We also shift $Acc$.}
+            \State $E \gets E + 1$
+            \State $Elen \gets Elen - 8$
+        \Else
+            \State $K \gets AccLen$ \Comment{Now $Elen = 0$, we will deal with the remainder in $Acc$.}
+        \EndIf
+    \EndIf
+
+    \State $Bits \gets$ \textit{K} most significant bits from $Acc$
+    \State $AccLen \gets AccLen - K$
+    \State $M \gets M^{2^K}$
+    \If{$\textit{WindowLen} \ge 1$}
+    \State $T_2[0] \gets T_2[Bits]$ \Comment{We always go through all values in $T_2$ and $T_2[0]$ will be set to zero if $Bits = 0$ }
+    \EndIf
+    \State $T_1 \gets M \cdot T_2[0]$
+    \State $M \gets T_1$ \Comment{M is modified only if $T_2[0] \neq 0$, but we still iterate through $T_1$ }
+\EndWhile
+
+\State \Return $M$ converted from Montgomery form.
+
+\end{algorithmic}
+\end{algorithm}
+\end{document}

@@ -5318,7 +5318,8 @@ static const br_rsa_private_key RSA_SK = {
 	(void *)RSA_Q, sizeof RSA_Q,
 	(void *)RSA_DP, sizeof RSA_DP,
 	(void *)RSA_DQ, sizeof RSA_DQ,
-	(void *)RSA_IQ, sizeof RSA_IQ
+	(void *)RSA_IQ, sizeof RSA_IQ,
+	(void *)RSA_E, sizeof RSA_E
 };
 
 /*
@@ -5463,7 +5464,8 @@ static const br_rsa_private_key RSA2048_SK = {
 	(void *)RSA2048_Q, sizeof RSA2048_Q,
 	(void *)RSA2048_DP, sizeof RSA2048_DP,
 	(void *)RSA2048_DQ, sizeof RSA2048_DQ,
-	(void *)RSA2048_IQ, sizeof RSA2048_IQ
+	(void *)RSA2048_IQ, sizeof RSA2048_IQ,
+	(void *)RSA2048_E, sizeof RSA2048_E
 };
 
 /*
@@ -5720,7 +5722,9 @@ static const br_rsa_private_key RSA4096_SK = {
 	(void *)RSA4096_Q, sizeof RSA4096_Q,
 	(void *)RSA4096_DP, sizeof RSA4096_DP,
 	(void *)RSA4096_DQ, sizeof RSA4096_DQ,
-	(void *)RSA4096_IQ, sizeof RSA4096_IQ
+	(void *)RSA4096_IQ, sizeof RSA4096_IQ,
+	(void *)RSA4096_E, sizeof RSA4096_E
+
 };
 
 static void
@@ -5743,12 +5747,13 @@ test_RSA_core(const char *name, br_rsa_public fpub, br_rsa_private fpriv)
 		exit(EXIT_FAILURE);
 	}
 	check_equals("KAT RSA pub", t2, t3, len);
+	
+	
 	if (!fpriv(t3, &RSA_SK)) {
 		fprintf(stderr, "RSA private operation failed (1)\n");
 		exit(EXIT_FAILURE);
 	}
 	check_equals("KAT RSA priv (1)", t1, t3, len);
-
 	/*
 	 * Another KAT test, with a (fake) hash value slightly different
 	 * (last byte is 0xD9 instead of 0xD3).
@@ -5816,7 +5821,6 @@ test_RSA_core(const char *name, br_rsa_public fpub, br_rsa_private fpriv)
 		exit(EXIT_FAILURE);
 	}
 	check_equals("KAT RSA priv (2048)", t1, t3, len);
-
 	/*
 	 * RSA-4096 test vector.
 	 */
@@ -5834,7 +5838,7 @@ test_RSA_core(const char *name, br_rsa_public fpub, br_rsa_private fpriv)
 	}
 	check_equals("KAT RSA priv (4096)", t1, t3, len);
 
-	printf("done.\n");
+	printf("indeed done.\n");
 	fflush(stdout);
 }
 
@@ -6970,6 +6974,12 @@ test_RSA_i31(void)
 		&br_rsa_i31_compute_modulus, &br_rsa_i31_compute_pubexp,
 		&br_rsa_i31_compute_privexp, &br_rsa_i31_public,
 		&br_rsa_i31_pkcs1_sign, &br_rsa_i31_pkcs1_vrfy);
+}
+
+static void
+test_RSA_safe(void)
+{
+	test_RSA_core("RSA i31 safe", &br_rsa_i31_public, &br_rsa_i31_private_mod_rand);
 }
 
 static void
@@ -9419,6 +9429,7 @@ static const struct {
 	STU(RSA_i31),
 	STU(RSA_i32),
 	STU(RSA_i62),
+	STU(RSA_safe),
 	STU(GHASH_ctmul),
 	STU(GHASH_ctmul32),
 	STU(GHASH_ctmul64),

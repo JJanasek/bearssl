@@ -149,6 +149,7 @@ coresrc=" \
 	src/int/i31_moddiv.c \
 	src/int/i31_modpow.c \
 	src/int/i31_modpow2.c \
+	src/int/mod_rand_pow.c \
 	src/int/i31_montmul.c \
 	src/int/i31_mulacc.c \
 	src/int/i31_muladd.c \
@@ -243,6 +244,11 @@ coresrc=" \
 	src/rsa/rsa_pss_sig_pad.c \
 	src/rsa/rsa_pss_sig_unpad.c \
 	src/rsa/rsa_ssl_decrypt.c \
+	src/rsa/FI-countermeasure.c \
+	src/rsa/message_and_exp_blind.c \
+	src/rsa/modulus_randomization.c \
+	src/rsa/alg1.c \
+	src/rsa/prime_gen.c \
 	src/ssl/prf.c \
 	src/ssl/prf_md5sha1.c \
 	src/ssl/prf_sha256.c \
