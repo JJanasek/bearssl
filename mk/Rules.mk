@@ -101,6 +101,7 @@ OBJ = \
  $(OBJDIR)$Pi31_moddiv$O \
  $(OBJDIR)$Pi31_modpow$O \
  $(OBJDIR)$Pi31_modpow2$O \
+ $(OBJDIR)$Pmy_mod_pow$O \
  $(OBJDIR)$Pi31_montmul$O \
  $(OBJDIR)$Pi31_mulacc$O \
  $(OBJDIR)$Pi31_muladd$O \
@@ -198,6 +199,8 @@ OBJ = \
  $(OBJDIR)$Pcountermeasure$O \
  $(OBJDIR)$Pmessage_blind$O \
  $(OBJDIR)$Pmessage_blind2$O \
+ $(OBJDIR)$Palg1$O \
+ $(OBJDIR)$Pprime_gen$O \
  $(OBJDIR)$Pprf$O \
  $(OBJDIR)$Pprf_md5sha1$O \
  $(OBJDIR)$Pprf_sha256$O \
@@ -678,6 +681,9 @@ $(OBJDIR)$Pi31_modpow$O: src$Pint$Pi31_modpow.c $(HEADERSPRIV)
 $(OBJDIR)$Pi31_modpow2$O: src$Pint$Pi31_modpow2.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pi31_modpow2$O src$Pint$Pi31_modpow2.c
 
+$(OBJDIR)$Pmy_mod_pow$O: src$Pint$Pmy_mod_pow.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmy_mod_pow$O src$Pint$Pmy_mod_pow.c
+
 $(OBJDIR)$Pi31_montmul$O: src$Pint$Pi31_montmul.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pi31_montmul$O src$Pint$Pi31_montmul.c
 
@@ -968,6 +974,12 @@ $(OBJDIR)$Pmessage_blind$O: src$Prsa$Pmessage_blind.c $(HEADERSPRIV)
 
 $(OBJDIR)$Pmessage_blind2$O: src$Prsa$Pmessage_blind2.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmessage_blind2$O src$Prsa$Pmessage_blind2.c
+
+$(OBJDIR)$Palg1$O: src$Prsa$Palg1.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Palg1$O src$Prsa$Palg1.c
+
+$(OBJDIR)$Pprime_gen$O: src$Prsa$Pprime_gen.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pprime_gen$O src$Prsa$Pprime_gen.c
 
 $(OBJDIR)$Pprf$O: src$Pssl$Pprf.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pprf$O src$Pssl$Pprf.c

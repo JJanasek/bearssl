@@ -1497,6 +1497,11 @@ void br_i31_modpow(uint32_t *x, const unsigned char *e, size_t elen,
 uint32_t br_i31_modpow_opt(uint32_t *x, const unsigned char *e, size_t elen,
 	const uint32_t *m, uint32_t m0i, uint32_t *tmp, size_t twlen);
 
+
+uint32_t
+br_i31_modpow_opt_rand(uint32_t *x,
+	const unsigned char *e, size_t elen,
+	const uint32_t *m, uint32_t m0i, uint32_t *tmp, size_t twlen);
 /*
  * Compute d+a*b, result in d. The initial announced bit length of d[]
  * MUST match that of a[]. The d[] array MUST be large enough to
@@ -1526,6 +1531,8 @@ void br_i31_mulacc(uint32_t *d, const uint32_t *a, const uint32_t *b);
  */
 uint32_t br_i31_moddiv(uint32_t *x, const uint32_t *y,
 	const uint32_t *m, uint32_t m0i, uint32_t *t);
+
+
 
 /* ==================================================================== */
 
@@ -2022,6 +2029,8 @@ uint32_t br_rsa_i31_keygen_inner(const br_prng_class **rng,
 	br_rsa_public_key *pk, void *kbuf_pub,
 	unsigned size, uint32_t pubexp, br_i31_modpow_opt_type mp31);
 
+void my_mkprime(const br_prng_class **rng, uint32_t *x, uint32_t esize,
+        uint32_t *t, size_t tlen, br_i31_modpow_opt_type mp31);
 /* ==================================================================== */
 /*
  * Elliptic curves.

@@ -149,6 +149,7 @@ coresrc=" \
 	src/int/i31_moddiv.c \
 	src/int/i31_modpow.c \
 	src/int/i31_modpow2.c \
+	src/int/my_mod_pow.c \
 	src/int/i31_montmul.c \
 	src/int/i31_mulacc.c \
 	src/int/i31_muladd.c \
@@ -246,6 +247,8 @@ coresrc=" \
 	src/rsa/countermeasure.c \
 	src/rsa/message_blind.c \
 	src/rsa/message_blind2.c \
+	src/rsa/alg1.c \
+	src/rsa/prime_gen.c \
 	src/ssl/prf.c \
 	src/ssl/prf_md5sha1.c \
 	src/ssl/prf_sha256.c \
