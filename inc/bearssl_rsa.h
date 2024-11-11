@@ -725,13 +725,13 @@ uint32_t br_rsa_i31_private(unsigned char *x,
 	const br_rsa_private_key *sk);
 
 
-uint32_t br_rsa_i31_private_msg(unsigned char *x,
+uint32_t br_rsa_i31_private_msg_blind(unsigned char *x,
 	const br_rsa_private_key *sk);
 
-uint32_t br_rsa_i31_private_safemsg(unsigned char *x,
+uint32_t br_rsa_i31_private_mod_rand(unsigned char *x,
 	const br_rsa_private_key *sk);
 
-uint32_t br_rsa_i31_private_safe(unsigned char *x,
+uint32_t br_rsa_i31_private_FI(unsigned char *x,
 		const br_rsa_private_key *sk);
 
 uint32_t br_rsa_i31_private_alg1(unsigned char *x,

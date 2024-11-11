@@ -101,7 +101,7 @@ OBJ = \
  $(OBJDIR)$Pi31_moddiv$O \
  $(OBJDIR)$Pi31_modpow$O \
  $(OBJDIR)$Pi31_modpow2$O \
- $(OBJDIR)$Pmy_mod_pow$O \
+ $(OBJDIR)$Pmod_rand_pow$O \
  $(OBJDIR)$Pi31_montmul$O \
  $(OBJDIR)$Pi31_mulacc$O \
  $(OBJDIR)$Pi31_muladd$O \
@@ -196,9 +196,9 @@ OBJ = \
  $(OBJDIR)$Prsa_pss_sig_pad$O \
  $(OBJDIR)$Prsa_pss_sig_unpad$O \
  $(OBJDIR)$Prsa_ssl_decrypt$O \
- $(OBJDIR)$Pcountermeasure$O \
- $(OBJDIR)$Pmessage_blind$O \
- $(OBJDIR)$Pmessage_blind2$O \
+ $(OBJDIR)$PFI-countermeasure$O \
+ $(OBJDIR)$Pmessage_and_exp_blind$O \
+ $(OBJDIR)$Pmodulus_randomization$O \
  $(OBJDIR)$Palg1$O \
  $(OBJDIR)$Pprime_gen$O \
  $(OBJDIR)$Pprf$O \
@@ -681,8 +681,8 @@ $(OBJDIR)$Pi31_modpow$O: src$Pint$Pi31_modpow.c $(HEADERSPRIV)
 $(OBJDIR)$Pi31_modpow2$O: src$Pint$Pi31_modpow2.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pi31_modpow2$O src$Pint$Pi31_modpow2.c
 
-$(OBJDIR)$Pmy_mod_pow$O: src$Pint$Pmy_mod_pow.c $(HEADERSPRIV)
-	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmy_mod_pow$O src$Pint$Pmy_mod_pow.c
+$(OBJDIR)$Pmod_rand_pow$O: src$Pint$Pmod_rand_pow.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmod_rand_pow$O src$Pint$Pmod_rand_pow.c
 
 $(OBJDIR)$Pi31_montmul$O: src$Pint$Pi31_montmul.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pi31_montmul$O src$Pint$Pi31_montmul.c
@@ -966,14 +966,14 @@ $(OBJDIR)$Prsa_pss_sig_unpad$O: src$Prsa$Prsa_pss_sig_unpad.c $(HEADERSPRIV)
 $(OBJDIR)$Prsa_ssl_decrypt$O: src$Prsa$Prsa_ssl_decrypt.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Prsa_ssl_decrypt$O src$Prsa$Prsa_ssl_decrypt.c
 
-$(OBJDIR)$Pcountermeasure$O: src$Prsa$Pcountermeasure.c $(HEADERSPRIV)
-	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pcountermeasure$O src$Prsa$Pcountermeasure.c
+$(OBJDIR)$PFI-countermeasure$O: src$Prsa$PFI-countermeasure.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$PFI-countermeasure$O src$Prsa$PFI-countermeasure.c
 
-$(OBJDIR)$Pmessage_blind$O: src$Prsa$Pmessage_blind.c $(HEADERSPRIV)
-	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmessage_blind$O src$Prsa$Pmessage_blind.c
+$(OBJDIR)$Pmessage_and_exp_blind$O: src$Prsa$Pmessage_and_exp_blind.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmessage_and_exp_blind$O src$Prsa$Pmessage_and_exp_blind.c
 
-$(OBJDIR)$Pmessage_blind2$O: src$Prsa$Pmessage_blind2.c $(HEADERSPRIV)
-	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmessage_blind2$O src$Prsa$Pmessage_blind2.c
+$(OBJDIR)$Pmodulus_randomization$O: src$Prsa$Pmodulus_randomization.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmodulus_randomization$O src$Prsa$Pmodulus_randomization.c
 
 $(OBJDIR)$Palg1$O: src$Prsa$Palg1.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Palg1$O src$Prsa$Palg1.c
