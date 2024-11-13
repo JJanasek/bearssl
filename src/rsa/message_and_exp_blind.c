@@ -25,7 +25,7 @@
 #include "inner.h"
 #include "../../inc/bearssl.h"
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
-#define TLEN   (24 * U)
+#define TLEN   (30 * U)
 
 
 
@@ -55,9 +55,10 @@ static size_t blind_exponent(unsigned char * x, const unsigned char* d, const si
 	
 	uint32_t r[4];
 	mkrand(&rng.vtable, r, 64);
+	r[1] |= 1;
 	r[0] = br_i31_bit_length(r + 1, 2);
 	
-	br_i31_zero(t1, m[0]);
+	br_i31_zero(t1, m[0] + 64);
 	br_i31_decode(t1, d, size);
 	t1[0] = m[0];
 	m[1] ^= 1;	
@@ -97,7 +98,6 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	mkrand(&rng.vtable, r1, 64);
 	r1[0] = br_i31_bit_length(r1 + 1, 2);
 	
-
 	/*
 	 * Compute the actual lengths of p and q, in bytes.
 	 * These lengths are not considered secret (we cannot really hide
@@ -120,7 +120,7 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	 * Compute the maximum factor length, in words.
 	 */
 	z = (long)(plen > qlen ? plen : qlen) << 3;
-	fwlen = 1 + 3 + 8;
+	fwlen = 1 + 3 + 10;
 	while (z > 0) {
 		z -= 31;
 		fwlen ++;
@@ -161,7 +161,16 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	t2 = mq + 2 * fwlen;
 	br_i31_zero(t2, mq[0]);
 	br_i31_mulacc(t2, mq, t1);
-	
+	uint32_t len = br_i31_bit_length(t2 , (t2[0] + 63) >> 5);
+	if(t2[0] + 32 > len){
+		t2[0] = len - 32;
+	}
+	else{
+		t2[0] = t2[0];
+	}
+	  
+	//t2[0] +=  br_i31_bit_length(t2 + ((t2[0] + 63) >> 5), 1);
+	//t2[0] +=  1 + (32 - t2[0] % 32);
 	/*
 	 * We encode the modulus into bytes, to perform the comparison
 	 * with bytes. We know that the product length, in bytes, is
@@ -200,11 +209,11 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	br_i31_zero(r_to_e, n[0]);
 	memcpy(r_to_e + 1, r1 + 1,  ((*r1 + 7) >> 3));
 	r_to_e[0] = n[0];
-
+	
+	
 	r &= br_i31_modpow_opt(r_to_e, sk->e,sk->elen, n,  br_i31_ninv31(n[1]), mq + 8 * fwlen, TLEN - 8 * fwlen);
 	
-	
-	
+		
 	br_i31_zero(c_prime, n[0]);
 	c[0] = c_prime[0];
 	br_i31_mulacc(c_prime, c, r_to_e);
@@ -291,15 +300,17 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	t1 = tmp + 4 * fwlen;
 	br_i31_zero(t1, n[0]);
 	memcpy(t1 + 1, r1 + 1, (*r1 + 7) >> 3);
-	t3[0] = t1[0];
+	t3[0] = n[0];
+	t1[0] = n[0];
+	
 	r &= br_i31_moddiv(t3, t1, n, br_i31_ninv31(n[1]), tmp + 6 * fwlen);
-
+	
 	/*
 	 * Encode the result. Since we already checked the value of xlen,
 	 * we can just use it right away.
 	 */
 	br_i31_encode(x, xlen, t3);
-
+	
 	/*
 	 * The only error conditions remaining at that point are invalid
 	 * values for p and q (even integers).

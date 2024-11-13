@@ -164,7 +164,13 @@ br_rsa_i31_private_mod_rand(unsigned char *x, const br_rsa_private_key *sk)
 	t2 = mq + 2 * fwlen;
 	br_i31_zero(t2, mq[0]);
 	br_i31_mulacc(t2, mq, t1);
-	
+	uint32_t len = br_i31_bit_length(t2 , (t2[0] + 63) >> 5);
+	if(t2[0] + 32 > len){
+		t2[0] = len - 32;
+	}
+	else{
+		t2[0] = t2[0];
+	}
 	/*
 	 * We encode the modulus into bytes, to perform the comparison
 	 * with bytes. We know that the product length, in bytes, is
@@ -205,7 +211,7 @@ br_rsa_i31_private_mod_rand(unsigned char *x, const br_rsa_private_key *sk)
 	r_to_e[0] = n[0];
 
 	r &= br_i31_modpow_opt(r_to_e, sk->e,sk->elen, n,  br_i31_ninv31(n[1]), mq + 8 * fwlen, TLEN - 8 * fwlen);
-	
+
 	
 	
 	br_i31_zero(c_prime, n[0]);
@@ -294,7 +300,8 @@ br_rsa_i31_private_mod_rand(unsigned char *x, const br_rsa_private_key *sk)
 	t1 = tmp + 4 * fwlen;
 	br_i31_zero(t1, n[0]);
 	memcpy(t1 + 1, r1 + 1, (*r1 + 7) >> 3);
-	t3[0] = t1[0];
+	t3[0] = n[0];
+	t1[0] = n[0];
 	r &= br_i31_moddiv(t3, t1, n, br_i31_ninv31(n[1]), tmp + 6 * fwlen);
 
 	/*

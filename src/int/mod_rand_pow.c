@@ -61,7 +61,7 @@ br_i31_modpow_opt_rand(uint32_t *x,
 	size_t u, v;
 	uint32_t acc;
 	int acc_len, win_len, prev_bitlen;
-
+	uint32_t len;
 	uint32_t BUFF[TLEN_TMP];
 	uint32_t r[4];
 	uint32_t new_r[4];
@@ -76,6 +76,13 @@ br_i31_modpow_opt_rand(uint32_t *x,
 	
 	br_i31_zero(curr_m, m[0]);
 	br_i31_mulacc(curr_m, m, r);
+	len = br_i31_bit_length(curr_m , (curr_m[0] + 63) >> 5);
+	if(curr_m[0] + 32 > len){
+		curr_m[0] = len - 32;
+	}
+	else{
+		curr_m[0] = curr_m[0];
+	}
 	m0i = br_i31_ninv31(curr_m[1]);
 
 	
