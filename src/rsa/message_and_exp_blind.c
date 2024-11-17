@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
+#include "bearssl.h"
 #include "inner.h"
-#include "../../inc/bearssl.h"
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
 #define TLEN   (30 * U)
 
@@ -169,8 +169,6 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 		t2[0] = t2[0];
 	}
 	  
-	//t2[0] +=  br_i31_bit_length(t2 + ((t2[0] + 63) >> 5), 1);
-	//t2[0] +=  1 + (32 - t2[0] % 32);
 	/*
 	 * We encode the modulus into bytes, to perform the comparison
 	 * with bytes. We know that the product length, in bytes, is
