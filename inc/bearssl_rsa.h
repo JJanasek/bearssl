@@ -180,6 +180,8 @@ typedef struct {
  * length (`n_bitlen`) MUST be exact.
  */
 typedef struct {
+	/** \brief Modulus. */
+	unsigned char *n;
 	/** \brief Modulus bit length (in bits, exact value). */
 	uint32_t n_bitlen;
 	/** \brief First prime factor. */
@@ -206,6 +208,17 @@ typedef struct {
 	unsigned char *e;
 	/** \brief Public exponent length (in bytes). */
 	size_t elen;
+	/** \brief random factor of p. */
+	uint32_t *r1;
+	/** \brief random factor of q. */
+	uint32_t *r2;
+	/** \brief randomized phi(p). */
+	uint32_t *phi_p;
+	/** \brief randomized phi(q). */
+	uint32_t *phi_q;
+	
+
+
 } br_rsa_private_key;
 
 /**
@@ -730,7 +743,8 @@ uint32_t br_rsa_i31_private_msg_blind(unsigned char *x,
 
 uint32_t br_rsa_i31_private_mod_rand(unsigned char *x,
 	const br_rsa_private_key *sk);
-
+uint32_t br_rsa_i31_private_mod_prerand(unsigned char *x,
+	const br_rsa_private_key *sk);
 uint32_t br_rsa_i31_private_FI(unsigned char *x,
 		const br_rsa_private_key *sk);
 
