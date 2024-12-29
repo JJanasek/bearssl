@@ -25,6 +25,14 @@ I have modified the exponentiation algorithm ([i31_modpow2.c](src/int/i31_modpow
 
 ---
 
+### **4. Key Randomization**
+
+I have modified the secret-key [struct](inc/bearssl_rsa.h) to contain a pre-randomized key. To achieve this, I extended the secret key to include the public modulus *n*, the public exponent *e*, two random masks *r_1* and *r_2*, and the blinded Euler’s totient function of the prime factors. The source code that handles key pre-randomization can be found in [pre_randomization.c](src/rsa/pre_randomization.c).
+
+
+
+---
+
 ## **Current Status**
 - Some countermeasures (e.g., fault injection) require further refinement.
 - Message and exponent blinding have shown effective results.
