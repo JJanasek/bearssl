@@ -24,41 +24,6 @@
 
 #include "bearssl.h"
 #include "inner.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <gmp.h>
-static void print(const uint32_t *x){
-	unsigned char buf[1024];
-	size_t bit_len = x[0];
-    	size_t len = (bit_len + 7) / 8;
-	br_i31_encode(buf, len, x);
- 	
-	mpz_t big_int;
-	mpz_init(big_int);
-	mpz_import(big_int, len, 1, 1, 1, 0, buf);
-	char *decimal_str = mpz_get_str(NULL, 10, big_int);
-	printf("%s\n", decimal_str);
-	mpz_clear(big_int);
-	free(decimal_str);
-}
-
-
-static void print2(const unsigned char *x, int len){
-	
-	mpz_t big_int;
-	mpz_init(big_int);
-	mpz_import(big_int, len, 1, 1, 1, 0, x);
-	char *decimal_str = mpz_get_str(NULL, 10, big_int);
-	printf("%s\n", decimal_str);
-	mpz_clear(big_int);
-	free(decimal_str);
-}
-static void mprintf(uint32_t*x){
-	for(int i =0; i < (x[0] + 63) >> 5; ++i){
-		printf("%d, ", x[i]);
-	}
-	printf("\n");
-}
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
 #define TLEN   (36 * U)
 
@@ -104,18 +69,44 @@ static size_t blind_exponent(unsigned char * x, const unsigned char* d, const si
 	return xlen;
 }
 
+
+void reblind(uint32_t * dest, uint32_t * src, uint32_t* mod, uint32_t * new_mask, uint32_t* tmp_buf){
+	
+	br_i31_zero(tmp_buf, mod[0]);
+	br_i31_mulacc(tmp_buf, new_mask, src);
+	br_i31_reduce(dest, tmp_buf, mod);
+	dest[0] = br_i31_bit_length(dest, (src[0] + 31) >> 5);
+
+}
+
+void inverse(uint32_t * dest, uint32_t * src, uint32_t * mod, uint32_t * tmp){
+	br_i31_zero(dest, mod[0]);
+	src[0] = mod[0];
+	dest[1] = 1;
+	br_i31_moddiv(dest, src, mod, br_i31_ninv31(mod[1]), tmp);
+}
+
+void create_mask(uint32_t * dest, uint32_t * m,uint32_t *op1,uint32_t * op2, uint32_t * tmp_buf){
+	br_i31_zero(tmp_buf, m[0]);
+	br_i31_mulacc(tmp_buf, op1, op2);
+	br_i31_reduce(dest, tmp_buf, m);
+}
+
+
 void init_key( const br_rsa_private_key *sk, br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen){
 	br_hmac_drbg_context rng;
 	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);
 
+	// copy public modulus
 	memcpy(new_sk->n, sk->n, (sk->n_bitlen +7) >> 3);
 	new_sk->n_bitlen = sk->n_bitlen;
 	
+	// create random mask r1
 	mkrand(&rng.vtable, new_sk->r1, 64);
 	new_sk->r1[1] |= 1;
 	new_sk->r1[0] = br_i31_bit_length(new_sk->r1 + 1, 2);
 	
-
+	// create random mask r2
 	mkrand(&rng.vtable, new_sk->r2, 64);
 	new_sk->r2[1] |= 1;
 	new_sk->r2[0] = br_i31_bit_length(new_sk->r2 + 1, 2);
@@ -125,33 +116,38 @@ void init_key( const br_rsa_private_key *sk, br_rsa_private_key *new_sk, uint32_
 	
 
 	br_i31_decode(tmp, sk->p, sk->plen);
+	
+	// blind phi(p)
 	tmp[1] ^= 1;
-
 	br_i31_zero(new_sk->phi_p, tmp[0]);
 	br_i31_mulacc(new_sk->phi_p, tmp, new_sk->r1);
 	tmp[1] ^= 1;
+
+	// blind p
 	br_i31_zero(t1, tmp[0]);
 	br_i31_mulacc(t1, tmp, new_sk->r1);
 	br_i31_encode(new_sk->p, (t1[0] + 7) >> 3, t1);
 	new_sk->plen = (t1[0] + 7) >> 3;
 	
 	br_i31_decode(tmp, sk->q, sk->qlen);
-	tmp[1] ^= 1;
 	
+	// blind phi(q)
+	tmp[1] ^= 1;
 	br_i31_zero(new_sk->phi_q, tmp[0]);
 	br_i31_mulacc(new_sk->phi_q, tmp, new_sk->r2);
 	tmp[1] ^= 1;
+	
+	// blind q
 	br_i31_zero(t1, tmp[0]);
 	br_i31_mulacc(t1, tmp, new_sk->r2);
 	br_i31_encode(new_sk->q, (t1[0] + 7) >> 3, t1);
 	new_sk->qlen = (t1[0] + 7) >> 3;
 	
+	// compute inverse of blinded q
 	uint32_t *t2 = t1 + fwlen;
 	br_i31_decode(tmp, sk->p, sk->plen);
 	br_i31_decode_reduce(t2, new_sk->q, new_sk->qlen,tmp);
-	br_i31_zero(t1, tmp[0]);
-	t1[1] = 1;
-	br_i31_moddiv(t1, t2, tmp, br_i31_ninv31(tmp[1]), t2 + fwlen);
+	inverse(t1, t2, tmp, t2 + fwlen);
 	br_i31_encode(new_sk->iq, (t1[0] + 7) >> 3, t1);
 	new_sk->iqlen = (t1[0] + 7) >> 3;
 	
@@ -164,38 +160,31 @@ void init_key( const br_rsa_private_key *sk, br_rsa_private_key *new_sk, uint32_
 	new_sk->elen = sk->elen;
 }
 
+
+
+
 void update_key( br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen ){
 
 	uint32_t * r1_inv = tmp;
 	uint32_t * r2_inv = tmp + 2 * fwlen;
 	uint32_t * t1 = r2_inv + 2 * fwlen;
-	uint32_t * t2 = t1 + 2 * fwlen;
-	uint32_t * t3 = t2 + 2 * fwlen;
+	uint32_t * mod = t1 + 2 * fwlen;
+	uint32_t * t3 = mod + 2 * fwlen;
 	uint32_t * t4 = t3 + 2 * fwlen;
 
 
-	br_i31_decode(t2, new_sk->n, (new_sk->n_bitlen + 7) >> 3);
+	br_i31_decode(mod, new_sk->n, (new_sk->n_bitlen + 7) >> 3);
 
 
 	// calculating multiplicative inverse of r_1
-	br_i31_zero(r1_inv, t2[0]);
-	br_i31_zero(t1, t2[0]);
+	br_i31_zero(t1, mod[0]);
 	memcpy(t1 + 1, new_sk->r1 + 1, (new_sk->r1[0] + 7) >> 3);
-	t1[0] = t2[0];
-	r1_inv[0] = t2[0];
-	r1_inv[1] = 1;
-	br_i31_moddiv(r1_inv, t1, t2, br_i31_ninv31(t2[1]), t3);
+	inverse(r1_inv, t1, mod, t3);
+	
 	// calculating multiplicative inverse of r_2
-
-	br_i31_zero(r2_inv, t2[0]);
-	br_i31_zero(t1, t2[0]);
+	br_i31_zero(t1, mod[0]);
 	memcpy(t1 + 1, new_sk->r2 + 1, (new_sk->r2[0] + 7) >> 3);
-	t1[0] = t2[0];
-	r2_inv[0] = t2[0];
-	r2_inv[1] = 1;
-	br_i31_moddiv(r2_inv, t1, t2, br_i31_ninv31(t2[1]), t3);
-
-
+	inverse(r2_inv, t1, mod, t3);
 
 	br_hmac_drbg_context rng;
 	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);
@@ -213,72 +202,48 @@ void update_key( br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen ){
 
 
 	// un-blinding p
-	br_i31_zero(t1, t2[0]);
+	br_i31_zero(t1, mod[0]);
 	br_i31_decode(t1, new_sk->p, new_sk->plen);
-	br_i31_zero(t3, t2[0]);
+	br_i31_zero(t3, mod[0]);
 	t3[0] = t1[0];
 	br_i31_mulacc(t3, t1, r1_inv);
-	br_i31_reduce(t1, t3, t2);
+	br_i31_reduce(t1, t3, mod);
 	t1[0] = br_i31_bit_length(t1, (t1[0] + 31) >> 5);
 	br_i31_encode(new_sk->p, (t1[0] + 7) >> 3, t1);
 	new_sk->plen = (t1[0] + 7) >> 3;
 	
 
 	// re-blinding phi(p)
-	br_i31_zero(t3, t2[0]);
-	t3[0] = r1_inv[0];
-	br_i31_mulacc(t3, r1_inv, new_sk->r1);
-	br_i31_reduce(t1, t3, t2);
-	t1[0] = br_i31_bit_length(t1, (t1[0] + 31) >> 5);
-	br_i31_zero(t3, t2[0]);
-	t3[0] = t1[0];
-	br_i31_mulacc(t3, t1, new_sk->phi_p);
-	br_i31_reduce(t1, t3, t2);
-	t1[0] = br_i31_bit_length(t1, (t1[0] + 31) >> 5);
-	br_i31_zero(new_sk->phi_p, t2[0]);
+	create_mask(t1, mod, r1_inv, new_sk->r1, t3);
+	reblind(t1, new_sk->phi_p, mod, t1, t3);
+	br_i31_zero(new_sk->phi_p, mod[0]);
 	memcpy(new_sk->phi_p + 1, t1 + 1, (t1[0] + 7) >> 3);
 	new_sk->phi_p[0] = t1[0];
 
-
-
 	// re-blinding phi(q)
-	br_i31_zero(t3, t2[0]);
-	br_i31_mulacc(t3, new_sk->r2, r2_inv);
-	br_i31_reduce(t1, t3, t2);
-	br_i31_zero(t3, t2[0]);
-	br_i31_mulacc(t3, t1, new_sk->phi_q);
-	br_i31_reduce(t1, t3, t2);
-	t1[0] = br_i31_bit_length(t1, (t1[0] + 31) >> 5);
-	br_i31_zero(new_sk->phi_q, t2[0]);
+	create_mask(t1, mod, new_sk->r2, r2_inv, t3);
+	reblind(t1, new_sk->phi_q, mod, t1, t3);
+	br_i31_zero(new_sk->phi_q, mod[0]);
 	memcpy(new_sk->phi_q + 1, t1 + 1, (t1[0] + 7) >> 3);
 	new_sk->phi_q[0] = t1[0];
 	
-
 	// re-blinding q
-	br_i31_zero(t4, t2[0]);
 	br_i31_decode(t1, new_sk->q, new_sk->qlen);
-	
-	
-	br_i31_mulacc(t4, new_sk->r2, r2_inv);
-	br_i31_reduce(t3, t4, t2);
-	br_i31_zero(t4, t2[0]);
-	br_i31_mulacc(t4, t1, t3);
-	br_i31_reduce(t3, t4, t2);
-	t3[0] = br_i31_bit_length(t3, (t3[0] + 31) >> 5);
+	create_mask(t3, mod, new_sk->r2, r2_inv, t4);
+	reblind(t3, t1, mod, t3, t4);
 	br_i31_encode(new_sk->q, (t3[0] + 7) >> 3, t3);
 	new_sk->qlen = (t3[0] + 7) >> 3;
 	
-
-	br_i31_decode(t2, new_sk->p, new_sk->plen);
-	br_i31_decode_reduce(t3, new_sk->q, new_sk->qlen,t2);
-	br_i31_zero(t1, t2[0]);
-	t1[1] = 1;
-	br_i31_moddiv(t1, t3, t2, br_i31_ninv31(t2[1]), t4);
+	// computing new inverse of q'
+	br_i31_decode(mod, new_sk->p, new_sk->plen);
+	br_i31_decode_reduce(t3, new_sk->q, new_sk->qlen,mod);
+	inverse(t1, t3, mod, t4);
 	br_i31_encode(new_sk->iq, (t1[0] + 7) >> 3, t1);
 	new_sk->iqlen = (t1[0] + 7) >> 3;
 
-	br_i31_zero(t3, t2[0]);
-	br_i31_mulacc(t3 ,t2, new_sk->r1);
+	// blinding p
+	br_i31_zero(t3, mod[0]);
+	br_i31_mulacc(t3 ,mod, new_sk->r1);
 	br_i31_encode(new_sk->p, (t3[0] + 7) >> 3, t3);
 	new_sk->plen = (t3[0] + 7) >> 3;
 
@@ -389,18 +354,21 @@ br_rsa_i31_private_mod_prerand(unsigned char *x, const br_rsa_private_key *sk)
 	/*
 	 * Decode q.
 	 */
+
 	mq = tmp;
-	//br_i31_decode(mq, rsa_sk.q, rsa_sk.qlen);
+
 	/*
 	 * Decode p.
 	 */
+	
 	t1 = mq + fwlen;
-	//br_i31_decode(t1, rsa_sk.p, rsa_sk.plen);
+	
 	/*
 	 * Compute the modulus (product of the two factors), to compare
 	 * it with the source value. We use br_i31_mulacc(), since it's
 	 * already used later on.
 	 */
+	
 	t2 = mq + 2 * fwlen;
 	br_i31_zero(t2, mq[0]);
 	br_i31_decode(t2, rsa_sk.n, (rsa_sk.n_bitlen + 7) >> 3);
