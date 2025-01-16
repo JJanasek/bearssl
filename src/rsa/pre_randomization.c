@@ -26,9 +26,6 @@
 #include "inner.h"
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
 #define TLEN   (36 * U)
-#include <stdio.h>
-#include <stdlib.h>
-#include <gmp.h>
 
 static void
 mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
