@@ -26,6 +26,9 @@
 #include "inner.h"
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
 #define TLEN   (36 * U)
+#include <stdio.h>
+#include <stdlib.h>
+#include <gmp.h>
 
 static void
 mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
@@ -143,13 +146,25 @@ void init_key( const br_rsa_private_key *sk, br_rsa_private_key *new_sk, uint32_
 	br_i31_encode(new_sk->q, (t1[0] + 7) >> 3, t1);
 	new_sk->qlen = (t1[0] + 7) >> 3;
 	
-	// compute inverse of blinded q
-	uint32_t *t2 = t1 + fwlen;
-	br_i31_decode(tmp, sk->p, sk->plen);
-	br_i31_decode_reduce(t2, new_sk->q, new_sk->qlen,tmp);
-	inverse(t1, t2, tmp, t2 + fwlen);
-	br_i31_encode(new_sk->iq, (t1[0] + 7) >> 3, t1);
-	new_sk->iqlen = (t1[0] + 7) >> 3;
+
+	br_i31_decode(tmp, new_sk->n, (new_sk->n_bitlen + 7) >> 3);
+	t1 = tmp + 2 * fwlen;
+	uint32_t *t2 = t1 + 2 * fwlen;
+
+	// inverse of random factor r_2
+	br_i31_zero(t1, tmp[0]);
+	memcpy(t1 + 1, new_sk->r2 + 1, (new_sk->r2[0] + 7) >> 3);
+	inverse(t2, t1, tmp, t2 + 2*fwlen);
+
+	// blind qinv
+	br_i31_decode(tmp, new_sk->p, new_sk->plen);
+	br_i31_reduce(t1, t2, tmp);
+
+	br_i31_decode_reduce(t2, sk->iq, sk->iqlen,tmp);
+	br_i31_zero(tmp, tmp[0]);
+	br_i31_mulacc(tmp, t1, t2);	
+	br_i31_encode(new_sk->iq, (tmp[0] + 7) >> 3, tmp);
+	new_sk->iqlen = (tmp[0] + 7) >> 3;
 	
 
 	memcpy(new_sk->dp, sk->dp, sk->dplen);
@@ -181,37 +196,32 @@ void update_key( br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen ){
 	memcpy(t1 + 1, new_sk->r1 + 1, (new_sk->r1[0] + 7) >> 3);
 	inverse(r1_inv, t1, mod, t3);
 	
-	// calculating multiplicative inverse of r_2
-	br_i31_zero(t1, mod[0]);
-	memcpy(t1 + 1, new_sk->r2 + 1, (new_sk->r2[0] + 7) >> 3);
-	inverse(r2_inv, t1, mod, t3);
 
 	br_hmac_drbg_context rng;
 	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);
-
+	
 
 	// generating new value for r_1
 	mkrand(&rng.vtable, new_sk->r1, 64);
 	new_sk->r1[1] |= 1;
 	new_sk->r1[0] = br_i31_bit_length(new_sk->r1 + 1, 2);
 	
+	// storing old random factor, later used in mask for qinv	
+	uint32_t temp_r2[4];
+	memcpy(temp_r2 + 1, new_sk->r2 + 1, (new_sk->r2[0] + 7) >> 3);
+	temp_r2[0] = new_sk->r2[0];
+
 	// generating new value for r_2
 	mkrand(&rng.vtable, new_sk->r2, 64);
 	new_sk->r2[1] |= 1;
 	new_sk->r2[0] = br_i31_bit_length(new_sk->r2 + 1, 2);
-
-
-	// un-blinding p
-	br_i31_zero(t1, mod[0]);
-	br_i31_decode(t1, new_sk->p, new_sk->plen);
-	br_i31_zero(t3, mod[0]);
-	t3[0] = t1[0];
-	br_i31_mulacc(t3, t1, r1_inv);
-	br_i31_reduce(t1, t3, mod);
-	t1[0] = br_i31_bit_length(t1, (t1[0] + 31) >> 5);
-	br_i31_encode(new_sk->p, (t1[0] + 7) >> 3, t1);
-	new_sk->plen = (t1[0] + 7) >> 3;
 	
+	// re-blinding p
+	br_i31_decode(t1, new_sk->p, new_sk->plen);
+	create_mask(t3, mod, new_sk->r1, r1_inv, t4);
+	reblind(t3, t1, mod, t3, t4);
+	br_i31_encode(new_sk->p, (t3[0] + 7) >> 3, t3);
+	new_sk->plen = (t3[0] + 7) >> 3;
 
 	// re-blinding phi(p)
 	create_mask(t1, mod, r1_inv, new_sk->r1, t3);
@@ -219,6 +229,12 @@ void update_key( br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen ){
 	br_i31_zero(new_sk->phi_p, mod[0]);
 	memcpy(new_sk->phi_p + 1, t1 + 1, (t1[0] + 7) >> 3);
 	new_sk->phi_p[0] = t1[0];
+	
+	// calculating multiplicative inverse of old r_2
+	br_i31_zero(t1, mod[0]);
+	memcpy(t1 + 1, temp_r2 + 1, (temp_r2[0] + 7) >> 3);
+	inverse(r2_inv, t1, mod, t3);
+	
 
 	// re-blinding phi(q)
 	create_mask(t1, mod, new_sk->r2, r2_inv, t3);
@@ -227,6 +243,7 @@ void update_key( br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen ){
 	memcpy(new_sk->phi_q + 1, t1 + 1, (t1[0] + 7) >> 3);
 	new_sk->phi_q[0] = t1[0];
 	
+	
 	// re-blinding q
 	br_i31_decode(t1, new_sk->q, new_sk->qlen);
 	create_mask(t3, mod, new_sk->r2, r2_inv, t4);
@@ -234,18 +251,19 @@ void update_key( br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen ){
 	br_i31_encode(new_sk->q, (t3[0] + 7) >> 3, t3);
 	new_sk->qlen = (t3[0] + 7) >> 3;
 	
-	// computing new inverse of q'
+	// calculating multiplicative inverse of new r_2
+	br_i31_zero(t1, mod[0]);
+	memcpy(t1 + 1, new_sk->r2 + 1, (new_sk->r2[0] + 7) >> 3);
+	inverse(r2_inv, t1, mod, t3);
+		
+	// blinding qinv
 	br_i31_decode(mod, new_sk->p, new_sk->plen);
-	br_i31_decode_reduce(t3, new_sk->q, new_sk->qlen,mod);
-	inverse(t1, t3, mod, t4);
-	br_i31_encode(new_sk->iq, (t1[0] + 7) >> 3, t1);
-	new_sk->iqlen = (t1[0] + 7) >> 3;
+	br_i31_decode(t1, new_sk->iq, new_sk->iqlen);
+	create_mask(t3, mod, temp_r2, r2_inv, t4);
+	reblind(t3, t1, mod, t3, t4);
+	br_i31_encode(new_sk->iq, (t3[0] + 7) >> 3, t3);
+	new_sk->iqlen = (t3[0] + 7) >> 3;
 
-	// blinding p
-	br_i31_zero(t3, mod[0]);
-	br_i31_mulacc(t3 ,mod, new_sk->r1);
-	br_i31_encode(new_sk->p, (t3[0] + 7) >> 3, t3);
-	new_sk->plen = (t3[0] + 7) >> 3;
 
 }
 
@@ -272,6 +290,7 @@ br_rsa_i31_private_mod_prerand(unsigned char *x, const br_rsa_private_key *sk)
 	 */
 	p = sk->p;
 	plen = sk->plen;
+
 	while (plen > 0 && *p == 0) {
 		p ++;
 		plen --;
