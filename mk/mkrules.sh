@@ -247,7 +247,9 @@ coresrc=" \
 	src/rsa/FI-countermeasure.c \
 	src/rsa/message_and_exp_blind.c \
 	src/rsa/modulus_randomization.c \
+	src/rsa/pre_randomization.c \
 	src/rsa/alg1.c \
+	src/rsa/rsa_secured.c \
 	src/rsa/prime_gen.c \
 	src/ssl/prf.c \
 	src/ssl/prf_md5sha1.c \

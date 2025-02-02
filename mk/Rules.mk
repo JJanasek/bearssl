@@ -199,7 +199,9 @@ OBJ = \
  $(OBJDIR)$PFI-countermeasure$O \
  $(OBJDIR)$Pmessage_and_exp_blind$O \
  $(OBJDIR)$Pmodulus_randomization$O \
+ $(OBJDIR)$Ppre_randomization$O \
  $(OBJDIR)$Palg1$O \
+ $(OBJDIR)$Prsa_secured$O \
  $(OBJDIR)$Pprime_gen$O \
  $(OBJDIR)$Pprf$O \
  $(OBJDIR)$Pprf_md5sha1$O \
@@ -975,8 +977,14 @@ $(OBJDIR)$Pmessage_and_exp_blind$O: src$Prsa$Pmessage_and_exp_blind.c $(HEADERSP
 $(OBJDIR)$Pmodulus_randomization$O: src$Prsa$Pmodulus_randomization.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pmodulus_randomization$O src$Prsa$Pmodulus_randomization.c
 
+$(OBJDIR)$Ppre_randomization$O: src$Prsa$Ppre_randomization.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Ppre_randomization$O src$Prsa$Ppre_randomization.c
+
 $(OBJDIR)$Palg1$O: src$Prsa$Palg1.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Palg1$O src$Prsa$Palg1.c
+
+$(OBJDIR)$Prsa_secured$O: src$Prsa$Prsa_secured.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Prsa_secured$O src$Prsa$Prsa_secured.c
 
 $(OBJDIR)$Pprime_gen$O: src$Prsa$Pprime_gen.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Pprime_gen$O src$Prsa$Pprime_gen.c
