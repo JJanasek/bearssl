@@ -24,11 +24,9 @@
 
 #include "bearssl.h"
 #include "inner.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <gmp.h>
+
 #define U2      (4 + ((BR_MAX_RSA_FACTOR + 30) / 31))
-#define TLEN_TMP  U2
+#define TLEN_TMP  3*U2
 static void
 mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
 {
@@ -52,7 +50,7 @@ mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
 
 /* see inner.h */
 uint32_t
-br_i31_modpow_opt_rand(uint32_t *x,
+br_i31_modpow_opt_rand(const br_prng_class ** rng, uint32_t *x,
 	const unsigned char *e, size_t elen,
 	const uint32_t *m, uint32_t m0i, uint32_t *tmp, size_t twlen)
 {	
@@ -63,14 +61,12 @@ br_i31_modpow_opt_rand(uint32_t *x,
 	int acc_len, win_len, prev_bitlen;
 	uint32_t len;
 	uint32_t BUFF[TLEN_TMP];
-	uint32_t r[4];
-	uint32_t new_r[4];
-	br_hmac_drbg_context rng;
-	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA BLIND", 18);
+	uint32_t r[(((3 * BR_RSA_RAND_FACTOR) / 2) + 63) >> 5];
+	uint32_t new_r[(BR_RSA_RAND_FACTOR + 63) >> 5];
 
-	mkrand(&rng.vtable, r, 80);
+	mkrand(rng, r, (3 * BR_RSA_RAND_FACTOR) / 2);
 	r[1] |= 1;
-	r[0] = br_i31_bit_length(r + 1, 3);
+	r[0] = br_i31_bit_length(r + 1, (((3 * BR_RSA_RAND_FACTOR) / 2) + 31) >> 5);
 	
 	uint32_t* curr_m = BUFF;
 	
@@ -84,7 +80,7 @@ br_i31_modpow_opt_rand(uint32_t *x,
 		curr_m[0] = curr_m[0];
 	}
 	m0i = br_i31_ninv31(curr_m[1]);
-
+	prev_bitlen = curr_m[0];
 	
 	/*
 	 * Get modulus size.
@@ -95,7 +91,7 @@ br_i31_modpow_opt_rand(uint32_t *x,
 	t1 = tmp + mwlen;
 	t2 = tmp + 2 * mwlen;
 	
-	int s = (x[0] + 63) >> 5;
+	uint32_t s = (x[0] + 63) >> 5;
 	for(;s < (curr_m[0] + 63) >> 5; ++s){
 		x[s] = 0;
 	}
@@ -133,8 +129,9 @@ br_i31_modpow_opt_rand(uint32_t *x,
 		memcpy(t2 + mwlen, x, mlen);
 		base = t2 + mwlen;
 		for (u = 2; u < ((unsigned)1 << win_len); u ++) {
+
+			
 			br_i31_montymul(base + mwlen, base, x, curr_m, m0i);
-			//print(base + mwlen);
 			base += mwlen;
 		}
 	}
@@ -144,6 +141,9 @@ br_i31_modpow_opt_rand(uint32_t *x,
 	 * be done efficiently by setting the high word to 1, then doing
 	 * one word-sized shift.
 	 */
+
+	
+
 	br_i31_zero(x, curr_m[0]);
 	x[(curr_m[0] + 31) >> 5] = 1;
 	br_i31_muladd_small(x, 0, curr_m);
@@ -174,9 +174,9 @@ br_i31_modpow_opt_rand(uint32_t *x,
 		bits = (acc >> (acc_len - k)) & (((uint32_t)1 << k) - 1);
 		acc_len -= k;
 
-		mkrand(&rng.vtable, new_r, 64);
+		mkrand(rng, new_r, BR_RSA_RAND_FACTOR);
 		new_r[1] |= 1;
-		new_r[0] = br_i31_bit_length(r + 1, 2);
+		new_r[0] = br_i31_bit_length(new_r + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
 
 		prev_bitlen = curr_m[0];
 		br_i31_zero(curr_m, prev_bitlen);

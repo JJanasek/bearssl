@@ -24,9 +24,6 @@
 
 #include "bearssl.h"
 #include "inner.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <gmp.h>
 
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
 #define TLEN   (24 * U)
@@ -213,7 +210,6 @@ br_rsa_i31_private_mod_rand(unsigned char *x, const br_rsa_private_key *sk)
 	r &= br_i31_modpow_opt(r_to_e, sk->e,sk->elen, n,  br_i31_ninv31(n[1]), mq + 8 * fwlen, TLEN - 8 * fwlen);
 
 	
-	
 	br_i31_zero(c_prime, n[0]);
 	c[0] = c_prime[0];
 	br_i31_mulacc(c_prime, c, r_to_e);
@@ -226,6 +222,7 @@ br_rsa_i31_private_mod_rand(unsigned char *x, const br_rsa_private_key *sk)
 
 	br_i31_decode(mq, sk->q, sk->qlen);
 	br_i31_decode(mp, sk->p, sk->plen);
+	
 
 	s2 = tmp;
 	s1 = tmp + fwlen;
@@ -250,8 +247,10 @@ br_rsa_i31_private_mod_rand(unsigned char *x, const br_rsa_private_key *sk)
 
 	unsigned char* dq = (unsigned char *) (tmp + 6 *fwlen); 
 	size_t dqlen = blind_exponent(dq, sk->dq, sk->dqlen, mq, tmp + 7 * fwlen);
-	r &= br_i31_modpow_opt_rand(s2, dq, dqlen, mq, q0i,
+	r &= br_i31_modpow_opt_rand(&rng.vtable, s2, dq, dqlen, mq, q0i,
 		tmp + 7 * fwlen, TLEN - 7 * fwlen);
+
+
 	/*
 	 * Compute s1 = x^dp mod p.
 	 */
@@ -259,7 +258,7 @@ br_rsa_i31_private_mod_rand(unsigned char *x, const br_rsa_private_key *sk)
 	unsigned char* dp = (unsigned char *) (tmp + 6 *fwlen); 
 	size_t dplen = blind_exponent(dp, sk->dp, sk->dplen, mp, tmp + 7 * fwlen);
 	
-	r &= br_i31_modpow_opt_rand(s1, dp, dplen, mp, p0i,
+	r &= br_i31_modpow_opt_rand(&rng.vtable, s1, dp, dplen, mp, p0i,
 		tmp + 7 * fwlen, TLEN - 7 * fwlen);
 	
 	/*

@@ -47,14 +47,11 @@ mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
 }
 
 
-static size_t blind_exponent(unsigned char * x, const unsigned char* d, const size_t size, uint32_t * m, uint32_t * t1){
+static size_t blind_exponent( const br_prng_class ** rng, unsigned char * x, const unsigned char* d, const size_t size, uint32_t * m, uint32_t * t1){
 
-	br_hmac_drbg_context rng;
-	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA BLIND", 18);
-	
-	uint32_t r[4];
-	mkrand(&rng.vtable, r, 64);
-	r[0] = br_i31_bit_length(r + 1, 2);
+	uint32_t r[(BR_RSA_RAND_FACTOR + 63) >> 5];
+    mkrand(rng, r, BR_RSA_RAND_FACTOR);
+	r[0] = br_i31_bit_length(r + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
 	
 	br_i31_zero(t1, m[0]);
 	br_i31_decode(t1, d, size);
@@ -70,7 +67,7 @@ static size_t blind_exponent(unsigned char * x, const unsigned char* d, const si
 }
 
 
-void reblind(uint32_t * dest, uint32_t * src, uint32_t* mod, uint32_t * new_mask, uint32_t* tmp_buf){
+static void reblind(uint32_t * dest, uint32_t * src, uint32_t* mod, uint32_t * new_mask, uint32_t* tmp_buf){
 	
 	br_i31_zero(tmp_buf, mod[0]);
 	br_i31_mulacc(tmp_buf, new_mask, src);
@@ -79,38 +76,35 @@ void reblind(uint32_t * dest, uint32_t * src, uint32_t* mod, uint32_t * new_mask
 
 }
 
-void inverse(uint32_t * dest, uint32_t * src, uint32_t * mod, uint32_t * tmp){
+static void inverse(uint32_t * dest, uint32_t * src, uint32_t * mod, uint32_t * tmp){
 	br_i31_zero(dest, mod[0]);
 	src[0] = mod[0];
 	dest[1] = 1;
 	br_i31_moddiv(dest, src, mod, br_i31_ninv31(mod[1]), tmp);
 }
 
-void create_mask(uint32_t * dest, uint32_t * m,uint32_t *op1,uint32_t * op2, uint32_t * tmp_buf){
+static void create_mask(uint32_t * dest, uint32_t * m,uint32_t *op1,uint32_t * op2, uint32_t * tmp_buf){
 	br_i31_zero(tmp_buf, m[0]);
 	br_i31_mulacc(tmp_buf, op1, op2);
 	br_i31_reduce(dest, tmp_buf, m);
 }
 
 
-void init_key( const br_rsa_private_key *sk, br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen){
-	br_hmac_drbg_context rng;
-	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);
+static void init_key( const br_prng_class ** rng, const br_rsa_private_key *sk, br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen){
 
 	// copy public modulus
 	memcpy(new_sk->n, sk->n, (sk->n_bitlen +7) >> 3);
 	new_sk->n_bitlen = sk->n_bitlen;
 	
 	// create random mask r1
-	mkrand(&rng.vtable, new_sk->r1, 64);
+    mkrand(rng, new_sk->r1, BR_RSA_RAND_FACTOR);
 	new_sk->r1[1] |= 1;
-	new_sk->r1[0] = br_i31_bit_length(new_sk->r1 + 1, 2);
+	new_sk->r1[0] = br_i31_bit_length(new_sk->r1 + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
 	
 	// create random mask r2
-	mkrand(&rng.vtable, new_sk->r2, 64);
+    mkrand(rng, new_sk->r2, BR_RSA_RAND_FACTOR);
 	new_sk->r2[1] |= 1;
-	new_sk->r2[0] = br_i31_bit_length(new_sk->r2 + 1, 2);
-	
+	new_sk->r2[0] = br_i31_bit_length(new_sk->r2 + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
 
 	uint32_t * t1 = tmp + fwlen;
 	
@@ -175,7 +169,7 @@ void init_key( const br_rsa_private_key *sk, br_rsa_private_key *new_sk, uint32_
 
 
 
-void update_key( br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen ){
+static void update_key( const br_prng_class ** rng, br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen ){
 
 	uint32_t * r1_inv = tmp;
 	uint32_t * r2_inv = tmp + 2 * fwlen;
@@ -194,24 +188,22 @@ void update_key( br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen ){
 	inverse(r1_inv, t1, mod, t3);
 	
 
-	br_hmac_drbg_context rng;
-	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);
-	
-
 	// generating new value for r_1
-	mkrand(&rng.vtable, new_sk->r1, 64);
+    mkrand(rng, new_sk->r1, BR_RSA_RAND_FACTOR);
 	new_sk->r1[1] |= 1;
-	new_sk->r1[0] = br_i31_bit_length(new_sk->r1 + 1, 2);
+	new_sk->r1[0] = br_i31_bit_length(new_sk->r1 + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
 	
-	// storing old random factor, later used in mask for qinv	
+    // storing old random factor, later used in mask for qinv	
 	uint32_t temp_r2[4];
 	memcpy(temp_r2 + 1, new_sk->r2 + 1, (new_sk->r2[0] + 7) >> 3);
 	temp_r2[0] = new_sk->r2[0];
 
 	// generating new value for r_2
-	mkrand(&rng.vtable, new_sk->r2, 64);
+    mkrand(rng, new_sk->r2, BR_RSA_RAND_FACTOR);
 	new_sk->r2[1] |= 1;
-	new_sk->r2[0] = br_i31_bit_length(new_sk->r2 + 1, 2);
+	new_sk->r2[0] = br_i31_bit_length(new_sk->r2 + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
+	
+	
 	
 	// re-blinding p
 	br_i31_decode(t1, new_sk->p, new_sk->plen);
@@ -330,17 +322,17 @@ br_rsa_i31_private_mod_prerand(unsigned char *x, const br_rsa_private_key *sk)
 
 	br_rsa_private_key rsa_sk;
 	mq = tmp;
-	uint32_t r2[4];
-	uint32_t r3[4];
-	uint32_t phi_p[(BR_MAX_RSA_SIZE + 63) << 5];
-	uint32_t phi_q[(BR_MAX_RSA_SIZE + 63) << 5];
-	unsigned char n_buf[(BR_MAX_RSA_SIZE + 7) << 3];
-	unsigned char p_buf[(BR_MAX_RSA_SIZE + 7) << 3];
-	unsigned char q_buf[(BR_MAX_RSA_SIZE + 7) << 3];
-	unsigned char dp_buf[(BR_MAX_RSA_SIZE + 7) << 3];
-	unsigned char dq_buf[(BR_MAX_RSA_SIZE + 7) << 3];
-	unsigned char iq_buf[(BR_MAX_RSA_SIZE + 7) << 3];
-	unsigned char e_buf[(BR_MAX_RSA_SIZE + 7) << 3];
+	uint32_t r2[(BR_RSA_RAND_FACTOR + 63) >> 5];
+	uint32_t r3[(BR_RSA_RAND_FACTOR + 63) >> 5];
+	uint32_t phi_p[(BR_MAX_RSA_SIZE + 63) >> 5];
+	uint32_t phi_q[(BR_MAX_RSA_SIZE + 63) >> 5];
+	unsigned char n_buf[(BR_MAX_RSA_SIZE + 7) >> 3];
+	unsigned char p_buf[(BR_MAX_RSA_SIZE + 7) >> 3];
+	unsigned char q_buf[(BR_MAX_RSA_SIZE + 7) >> 3];
+	unsigned char dp_buf[(BR_MAX_RSA_SIZE + 7) >> 3];
+	unsigned char dq_buf[(BR_MAX_RSA_SIZE + 7) >> 3];
+	unsigned char iq_buf[(BR_MAX_RSA_SIZE + 7) >> 3];
+	unsigned char e_buf[(BR_MAX_RSA_SIZE + 7) >> 3];
 	rsa_sk.r1 = r2;
 	rsa_sk.r2 = r3;
 	rsa_sk.n = n_buf;
@@ -357,14 +349,14 @@ br_rsa_i31_private_mod_prerand(unsigned char *x, const br_rsa_private_key *sk)
 	br_hmac_drbg_context rng;
 	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);
 	
-	init_key(sk, &rsa_sk, tmp, fwlen);
+	init_key(&rng.vtable, sk, &rsa_sk, tmp, fwlen);
 
-	update_key(&rsa_sk, tmp, fwlen);
+	update_key(&rng.vtable, &rsa_sk, tmp, fwlen);
 
 
-	uint32_t r1[4];
-	mkrand(&rng.vtable, r1, 64);
-	r1[0] = br_i31_bit_length(r1 + 1, 2);
+	uint32_t r1[(BR_RSA_RAND_FACTOR + 63) >> 5];
+	mkrand(&rng.vtable, r1, BR_RSA_RAND_FACTOR);
+	r1[0] = br_i31_bit_length(r1 + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
 	
 
 	/*
@@ -468,7 +460,7 @@ br_rsa_i31_private_mod_prerand(unsigned char *x, const br_rsa_private_key *sk)
 
 	
 	unsigned char* dq = (unsigned char *) (tmp + 6 *fwlen); 
-	size_t dqlen = blind_exponent(dq, rsa_sk.dq, rsa_sk.dqlen, rsa_sk.phi_q, tmp + 7 * fwlen);
+	size_t dqlen = blind_exponent(&rng.vtable, dq, rsa_sk.dq, rsa_sk.dqlen, rsa_sk.phi_q, tmp + 7 * fwlen);
 
 		
 	/*
@@ -477,7 +469,7 @@ br_rsa_i31_private_mod_prerand(unsigned char *x, const br_rsa_private_key *sk)
 	q0i = br_i31_ninv31(mq[1]);
 
 	
-	r &= br_i31_modpow_opt_rand(s2, dq, dqlen, mq, q0i,
+	r &= br_i31_modpow_opt_rand(&rng.vtable, s2, dq, dqlen, mq, q0i,
 		tmp + 7 * fwlen, TLEN - 7 * fwlen);
 	
 	/*
@@ -485,12 +477,12 @@ br_rsa_i31_private_mod_prerand(unsigned char *x, const br_rsa_private_key *sk)
 	 */
 	
 	unsigned char* dp = (unsigned char *) (tmp + 6 *fwlen); 
-	size_t dplen = blind_exponent(dp, rsa_sk.dp, rsa_sk.dplen, rsa_sk.phi_p, tmp + 7 * fwlen);
+	size_t dplen = blind_exponent(&rng.vtable, dp, rsa_sk.dp, rsa_sk.dplen, rsa_sk.phi_p, tmp + 7 * fwlen);
 
 	
 	p0i = br_i31_ninv31(mp[1]);
 	
-	r &= br_i31_modpow_opt_rand(s1, dp, dplen, mp, p0i,
+	r &= br_i31_modpow_opt_rand(&rng.vtable, s1, dp, dplen, mp, p0i,
 		tmp + 8 * fwlen, TLEN - 8 * fwlen);
 	
 	/*

@@ -82,6 +82,10 @@
 #define BR_MAX_EC_SIZE   528
 
 /*
+ * Bit len of random number used as mask
+ */
+#define BR_RSA_RAND_FACTOR 64
+/*
  * Some macros to recognize the current architecture. Right now, we are
  * interested into automatically recognizing architecture with efficient
  * 64-bit types so that we may automatically use implementations that
@@ -1498,8 +1502,24 @@ uint32_t br_i31_modpow_opt(uint32_t *x, const unsigned char *e, size_t elen,
 	const uint32_t *m, uint32_t m0i, uint32_t *tmp, size_t twlen);
 
 
+/*
+ * Compute a modular exponentiation. x[] MUST be an integer modulo m[]
+ * (same announced bit length, lower value). m[] MUST be odd. The
+ * exponent is in big-endian unsigned notation, over 'elen' bytes. The
+ * "m0i" parameter is equal to -(1/m0) mod 2^31, where m0 is the least
+ * significant value word of m[] (this works only if m[] is an odd
+ * integer). The tmp[] array is used for temporaries, and has size
+ * 'twlen' words; it must be large enough to accommodate at least two
+ * temporary values with the same size as m[] (including the leading
+ * "bit length" word). If there is room for more temporaries, then this
+ * function may use the extra room for window-based optimisation,
+ * resulting in faster computations.
+ *
+ * Returned value is 1 on success, 0 on error. An error is reported if
+ * the provided tmp[] array is too short.
+ */
 uint32_t
-br_i31_modpow_opt_rand(uint32_t *x,
+br_i31_modpow_opt_rand(const br_prng_class ** rng, uint32_t *x,
 	const unsigned char *e, size_t elen,
 	const uint32_t *m, uint32_t m0i, uint32_t *tmp, size_t twlen);
 /*
