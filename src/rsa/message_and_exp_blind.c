@@ -48,15 +48,13 @@ mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
         }
 }
 
-static size_t blind_exponent(unsigned char * x, const unsigned char* d, const size_t size, uint32_t * m, uint32_t * t1){
+static size_t blind_exponent(const br_prng_class ** rng, unsigned char * x, const unsigned char* d, const size_t size, uint32_t * m, uint32_t * t1){
 
-	br_hmac_drbg_context rng;
-	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA BLIND", 18);
 	
-	uint32_t r[4];
-	mkrand(&rng.vtable, r, 64);
+	uint32_t r[(BR_RSA_RAND_FACTOR + 63) >> 5];
+	mkrand(rng, r, BR_RSA_RAND_FACTOR);
 	r[1] |= 1;
-	r[0] = br_i31_bit_length(r + 1, 2);
+	r[0] = br_i31_bit_length(r + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
 	
 	br_i31_zero(t1, m[0] + 64);
 	br_i31_decode(t1, d, size);
@@ -94,9 +92,9 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);
 	
 
-	uint32_t r1[4];
-	mkrand(&rng.vtable, r1, 64);
-	r1[0] = br_i31_bit_length(r1 + 1, 2);
+	uint32_t r1[(BR_RSA_RAND_FACTOR + 63) >> 5];
+	mkrand(&rng.vtable, r1, BR_RSA_RAND_FACTOR);
+	r1[0] = br_i31_bit_length(r1 + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
 	
 	/*
 	 * Compute the actual lengths of p and q, in bytes.
@@ -247,7 +245,7 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	q0i = br_i31_ninv31(mq[1]);
 
 	unsigned char* dq = (unsigned char *) (tmp + 6 *fwlen); 
-	size_t dqlen = blind_exponent(dq, sk->dq, sk->dqlen, mq, tmp + 7 * fwlen);
+	size_t dqlen = blind_exponent(&rng.vtable,dq, sk->dq, sk->dqlen, mq, tmp + 7 * fwlen);
 	r &= br_i31_modpow_opt(s2, dq, dqlen, mq, q0i,
 		tmp + 7 * fwlen, TLEN - 7 * fwlen);
 	/*
@@ -255,7 +253,7 @@ br_rsa_i31_private_msg_blind(unsigned char *x, const br_rsa_private_key *sk)
 	 */
 	p0i = br_i31_ninv31(mp[1]);
 	unsigned char* dp = (unsigned char *) (tmp + 6 *fwlen); 
-	size_t dplen = blind_exponent(dp, sk->dp, sk->dplen, mp, tmp + 7 * fwlen);
+	size_t dplen = blind_exponent(&rng.vtable,dp, sk->dp, sk->dplen, mp, tmp + 7 * fwlen);
 	
 	r &= br_i31_modpow_opt(s1, dp, dplen, mp, p0i,
 		tmp + 7 * fwlen, TLEN - 7 * fwlen);
