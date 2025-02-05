@@ -27,26 +27,6 @@
 
 #define U2      (4 + ((BR_MAX_RSA_FACTOR + 30) / 31))
 #define TLEN_TMP  4*U2
-static void
-mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
-{
-        size_t u, len;
-        unsigned m;
-
-        len = (esize + 31) >> 5;
-        (*rng)->generate(rng, x + 1, len * sizeof(uint32_t));
-        for (u = 1; u < len; u ++) {
-                x[u] &= 0x7FFFFFFF;
-        }
-        m = esize & 31;
-        if (m == 0) {
-                x[len] &= 0x7FFFFFFF;
-        } else {
-                x[len] &= 0x7FFFFFFF >> (31 - m);
-        }
-}
-
-
 
 /* see inner.h */
 uint32_t
@@ -63,7 +43,7 @@ br_i31_modpow_opt_rand(const br_prng_class ** rng, uint32_t *x,
 	uint32_t r[(((2 * BR_RSA_RAND_FACTOR)) + 63) >> 5];
 	uint32_t new_r[(BR_RSA_RAND_FACTOR + 63) >> 5];
 
-	mkrand(rng, r, (2 * BR_RSA_RAND_FACTOR));
+	make_rand(rng, r, (2 * BR_RSA_RAND_FACTOR));
 	r[1] |= 1;
 	r[0] = br_i31_bit_length(r + 1, (((2 * BR_RSA_RAND_FACTOR)) + 31) >> 5);
 	
@@ -170,7 +150,7 @@ br_i31_modpow_opt_rand(const br_prng_class ** rng, uint32_t *x,
 		bits = (acc >> (acc_len - k)) & (((uint32_t)1 << k) - 1);
 		acc_len -= k;
 
-		mkrand(rng, new_r, BR_RSA_RAND_FACTOR);
+		make_rand(rng, new_r, BR_RSA_RAND_FACTOR);
 		new_r[1] |= 1;
 		new_r[0] = br_i31_bit_length(new_r + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
 
