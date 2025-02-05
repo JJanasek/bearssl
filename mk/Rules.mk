@@ -200,7 +200,7 @@ OBJ = \
  $(OBJDIR)$Pmessage_and_exp_blind$O \
  $(OBJDIR)$Pmodulus_randomization$O \
  $(OBJDIR)$Ppre_randomization$O \
- $(OBJDIR)$Palg1$O \
+ $(OBJDIR)$Prsa_i31_randkey$O \
  $(OBJDIR)$Prsa_secured$O \
  $(OBJDIR)$Pprime_gen$O \
  $(OBJDIR)$Pprf$O \
@@ -980,8 +980,8 @@ $(OBJDIR)$Pmodulus_randomization$O: src$Prsa$Pmodulus_randomization.c $(HEADERSP
 $(OBJDIR)$Ppre_randomization$O: src$Prsa$Ppre_randomization.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Ppre_randomization$O src$Prsa$Ppre_randomization.c
 
-$(OBJDIR)$Palg1$O: src$Prsa$Palg1.c $(HEADERSPRIV)
-	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Palg1$O src$Prsa$Palg1.c
+$(OBJDIR)$Prsa_i31_randkey$O: src$Prsa$Prsa_i31_randkey.c $(HEADERSPRIV)
+	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Prsa_i31_randkey$O src$Prsa$Prsa_i31_randkey.c
 
 $(OBJDIR)$Prsa_secured$O: src$Prsa$Prsa_secured.c $(HEADERSPRIV)
 	$(CC) $(CFLAGS) $(INCFLAGS) $(CCOUT)$(OBJDIR)$Prsa_secured$O src$Prsa$Prsa_secured.c

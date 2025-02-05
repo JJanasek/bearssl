@@ -1552,7 +1552,10 @@ void br_i31_mulacc(uint32_t *d, const uint32_t *a, const uint32_t *b);
 uint32_t br_i31_moddiv(uint32_t *x, const uint32_t *y,
 	const uint32_t *m, uint32_t m0i, uint32_t *t);
 
-
+void init_key( const br_prng_class ** rng, const br_rsa_private_key *sk, br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen);
+void update_key( const br_prng_class ** rng, br_rsa_private_key *new_sk, uint32_t *tmp, uint32_t fwlen );
+size_t blind_exponent( const br_prng_class ** rng, unsigned char * x, const unsigned char* d, const size_t size, uint32_t * m, uint32_t * t1);
+void make_rand(const br_prng_class **rng, uint32_t *x, uint32_t esize);
 
 /* ==================================================================== */
 
