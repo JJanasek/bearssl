@@ -22,11 +22,11 @@
  * SOFTWARE.
  */
 
+#include <sys/random.h>
 #include "bearssl.h"
 #include "inner.h"
-
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
-#define TLEN   (24 * U)
+#define TLEN   (36 * U)
 
 static void
 mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
@@ -89,8 +89,15 @@ br_rsa_i31_private_mod_rand(unsigned char *x, const br_rsa_private_key *sk)
 	uint32_t r;
 
 	mq = tmp;
+	unsigned char buffer[16];
+    	ssize_t result;
+
+    	// Flags: 0 means a "blocking" call until the kernel CSPRNG is fully initialized
+    	//        and enough random data is available.
+    	result = getrandom(buffer, sizeof(buffer), 0);
+    
 	br_hmac_drbg_context rng;
-	br_hmac_drbg_init(&rng, &br_sha256_vtable, "seed for RSA SAFE", 17);
+	br_hmac_drbg_init(&rng, &br_sha256_vtable, buffer, result);
 	
 
 	uint32_t r1[4];
