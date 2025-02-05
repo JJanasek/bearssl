@@ -26,7 +26,7 @@
 #include "inner.h"
 
 #define U2      (4 + ((BR_MAX_RSA_FACTOR + 30) / 31))
-#define TLEN_TMP  3*U2
+#define TLEN_TMP  4*U2
 static void
 mkrand(const br_prng_class **rng, uint32_t *x, uint32_t esize)
 {
@@ -59,26 +59,19 @@ br_i31_modpow_opt_rand(const br_prng_class ** rng, uint32_t *x,
 	size_t u, v;
 	uint32_t acc;
 	int acc_len, win_len, prev_bitlen;
-	uint32_t len;
 	uint32_t BUFF[TLEN_TMP];
-	uint32_t r[(((3 * BR_RSA_RAND_FACTOR) / 2) + 63) >> 5];
+	uint32_t r[(((2 * BR_RSA_RAND_FACTOR)) + 63) >> 5];
 	uint32_t new_r[(BR_RSA_RAND_FACTOR + 63) >> 5];
 
-	mkrand(rng, r, (3 * BR_RSA_RAND_FACTOR) / 2);
+	mkrand(rng, r, (2 * BR_RSA_RAND_FACTOR));
 	r[1] |= 1;
-	r[0] = br_i31_bit_length(r + 1, (((3 * BR_RSA_RAND_FACTOR) / 2) + 31) >> 5);
+	r[0] = br_i31_bit_length(r + 1, (((2 * BR_RSA_RAND_FACTOR)) + 31) >> 5);
 	
 	uint32_t* curr_m = BUFF;
 	
 	br_i31_zero(curr_m, m[0]);
 	br_i31_mulacc(curr_m, m, r);
-	len = br_i31_bit_length(curr_m , (curr_m[0] + 63) >> 5);
-	if(curr_m[0] + 32 > len){
-		curr_m[0] = len - 32;
-	}
-	else{
-		curr_m[0] = curr_m[0];
-	}
+	curr_m[0] = br_i31_bit_length(curr_m + 1 , (curr_m[0] + 31) >> 5);
 	m0i = br_i31_ninv31(curr_m[1]);
 	prev_bitlen = curr_m[0];
 	
@@ -90,10 +83,13 @@ br_i31_modpow_opt_rand(const br_prng_class ** rng, uint32_t *x,
 	mwlen += (mwlen & 1);
 	t1 = tmp + mwlen;
 	t2 = tmp + 2 * mwlen;
-	
-	uint32_t s = (x[0] + 63) >> 5;
-	for(;s < (curr_m[0] + 63) >> 5; ++s){
-		x[s] = 0;
+    
+    /*
+     * We increased the moudulus size, now we zero words in x up to the modulus size
+     */
+	uint32_t x_length = (x[0] + 63) >> 5;
+	for(;x_length < (curr_m[0] + 63) >> 5; ++x_length){
+		x[x_length] = 0;
 	}
 	x[0] = curr_m[0];
 
@@ -181,6 +177,7 @@ br_i31_modpow_opt_rand(const br_prng_class ** rng, uint32_t *x,
 		prev_bitlen = curr_m[0];
 		br_i31_zero(curr_m, prev_bitlen);
 		br_i31_mulacc(curr_m, m, new_r);
+		curr_m[0] = br_i31_bit_length(curr_m + 1 , (curr_m[0] + 31) >> 5);
 		m0i = br_i31_ninv31(curr_m[1]);
 		curr_m[0] = prev_bitlen;
 		

@@ -84,7 +84,7 @@
 /*
  * Bit len of random number used as mask
  */
-#define BR_RSA_RAND_FACTOR 64
+#define BR_RSA_RAND_FACTOR 62
 /*
  * Some macros to recognize the current architecture. Right now, we are
  * interested into automatically recognizing architecture with efficient
