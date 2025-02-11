@@ -1522,6 +1522,11 @@ uint32_t
 br_i31_modpow_opt_rand(const br_prng_class ** rng, uint32_t *x,
 	const unsigned char *e, size_t elen,
 	const uint32_t *m, uint32_t m0i, uint32_t *tmp, size_t twlen);
+
+uint32_t
+br_i31_double_modpow_opt_rand(const br_prng_class ** rng, uint32_t *x1, uint32_t *x2,
+	const unsigned char *e1, size_t elen1, const unsigned char *e2, size_t elen2,
+	const uint32_t *m, uint32_t m0i, uint32_t *tmp, size_t twlen);
 /*
  * Compute d+a*b, result in d. The initial announced bit length of d[]
  * MUST match that of a[]. The d[] array MUST be large enough to
