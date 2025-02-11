@@ -1,49 +1,66 @@
 # **sca-bearssl-protected-rsa**
 
-This project aims to implement countermeasures against **Side-Channel Attacks (SCA)** and **Fault Injection Attacks** in the RSA implementation of BearSSL.
+This project implements countermeasures against **Side-Channel Attacks (SCA)** and **Fault Injection Attacks** in the RSA implementation of **BearSSL**.
 
 ---
 
-## **Implemented Countermeasures**
+### **1. Message and Exponent Blinding**
 
-### **1. Fault Injection Countermeasure**
-I have implemented a fault injection countermeasure inspired by **Algorithm 4** from [this paper](https://eprint.iacr.org/2014/559.pdf). However, the current implementation still has some unresolved issues.
+To protect against first-order SCA attacks, message and exponent blinding have been implemented. These countermeasures randomize the message and exponent values during RSA operations, effectively mitigating power analysis attacks.
 
-- **Source Code**: [FI-countermeasure.c](src/rsa/FI-countermeasure.c)
-
----
-
-### **2. Message and Exponent Blinding**
-To protect against first-order SCA attacks, I have implemented message and exponent blinding. This countermeasure is working as expected.
-
-- **Source Code**: [message_and_exp_blind.c](src/rsa/message_and_exp_blind.c)
+- **Source Code:** [message_and_exp_blind.c](src/rsa/message_and_exp_blind.c)
 
 ---
 
-### **3. Modulus Randomization**
-I have modified the exponentiation algorithm ([i31_modpow2.c](src/int/i31_modpow2.c)) to incorporate modulus randomization in each iteration and you can see source code in ([mod_rand_pow.c](src/int/mod_rand_pow.c)). This modified algorithm is used in the [RSA decryption algorithm](src/rsa/modulus_randomization.c).
+### **2. Modulus Randomization**
+
+The exponentiation algorithm ([i31_modpow2.c](src/int/i31_modpow2.c)) has been modified to incorporate modulus randomization during each iteration. This adds an additional layer of unpredictability, further protecting against side-channel leakage.
+
+- **Source Code:** [mod_rand_pow.c](src/int/mod_rand_pow.c)
+
+This modified algorithm is integrated into the RSA decryption process:
+
+- **Source Code:** [modulus_randomization.c](src/rsa/modulus_randomization.c)
 
 ---
 
-### **4. Key Randomization**
+### **3. Key Randomization**
 
-I have modified the secret-key [struct](inc/bearssl_rsa.h) to contain a pre-randomized key. To achieve this, I extended the secret key to include the public modulus *n*, the public exponent *e*, two random masks *r_1* and *r_2*, and the blinded Euler’s totient function of the prime factors. The source code that handles key pre-randomization can be found in [pre_randomization.c](src/rsa/pre_randomization.c).
+The secret key structure ([bearssl_rsa.h](inc/bearssl_rsa.h)) has been extended to include a pre-randomized key. The updated structure contains:
 
+- The public modulus *n*,
+- The public exponent *e*,
+- Two random masks (*r₁* and *r₂*),
+- Blinded Euler’s totient functions of the prime factors.
 
+This pre-randomization ensures that secret key components are masked before use, protecting against both SCA and fault attacks.
+
+- **Source Code:** [pre_randomization.c](src/rsa/pre_randomization.c)
+
+---
+
+### **4. Fault Injection Protection**
+
+Fault injection countermeasures have been integrated into the SCA-protected RSA decryption algorithm to enhance robustness against hardware fault attacks.
+
+- **Source Code:** [rsa_secured.c](src/rsa/rsa_secured.c)
 
 ---
 
 ## **Current Status**
-- Some countermeasures (e.g., fault injection) require further refinement.
-- Message and exponent blinding have shown effective results.
-- Modulus randomization has been successfully tested using my test vectors.
+
+- **Message and exponent blinding:** Successfully implemented and tested.
+- **Modulus randomization:** Successfully implemented and tested.
+- **Key pre-randomization:** Successfully tested and integrated into the decryption flow.
+- **Fault injection protection:** Initial protections added; further improvements planned.
+
 ---
 
 ## **Future Work**
-- Improve fault injection countermeasures for more robust protection.
-- Test the implementation under various attack scenarios.
 
----
+- Enhance fault injection countermeasures for even stronger hardware-level protection.
+- Test the implementation against a broader range of side-channel and fault injection attack scenarios.
+- Optimize performance while maintaining strong security guarantees.
 
 ## **How to Contribute**
 Contributions and suggestions are welcome! Please feel free to submit issues or pull requests.
