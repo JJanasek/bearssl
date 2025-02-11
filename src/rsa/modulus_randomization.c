@@ -46,19 +46,19 @@ br_rsa_i31_private_mod_rand(unsigned char *x, const br_rsa_private_key *sk)
 
 	mq = tmp;
 	unsigned char buffer[16];
-    	ssize_t result;
+    ssize_t result;
 
-    	// Flags: 0 means a "blocking" call until the kernel CSPRNG is fully initialized
-    	//        and enough random data is available.
-    	result = getrandom(buffer, sizeof(buffer), 0);
+   	// Flags: 0 means a "blocking" call until the kernel CSPRNG is fully initialized
+    //        and enough random data is available.
+    result = getrandom(buffer, sizeof(buffer), 0);
     
 	br_hmac_drbg_context rng;
 	br_hmac_drbg_init(&rng, &br_sha256_vtable, buffer, result);
 	
 
-	uint32_t r1[4];
-	make_rand(&rng.vtable, r1, 64);
-	r1[0] = br_i31_bit_length(r1 + 1, 2);
+	uint32_t r1[(BR_RSA_RAND_FACTOR + 63) >> 5];
+	make_rand(&rng.vtable, r1, BR_RSA_RAND_FACTOR);
+	r1[0] = br_i31_bit_length(r1 + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
 	
 
 	/*
@@ -124,13 +124,7 @@ br_rsa_i31_private_mod_rand(unsigned char *x, const br_rsa_private_key *sk)
 	t2 = mq + 2 * fwlen;
 	br_i31_zero(t2, mq[0]);
 	br_i31_mulacc(t2, mq, t1);
-	uint32_t len = br_i31_bit_length(t2 , (t2[0] + 63) >> 5);
-	if(t2[0] + 32 > len){
-		t2[0] = len - 32;
-	}
-	else{
-		t2[0] = t2[0];
-	}
+	t2[0] = br_i31_bit_length(t2 + 1 , (t2[0] + 31) >> 5);
 	/*
 	 * We encode the modulus into bytes, to perform the comparison
 	 * with bytes. We know that the product length, in bytes, is
