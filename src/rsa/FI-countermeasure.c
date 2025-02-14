@@ -28,6 +28,7 @@
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
 #define TLEN   (24 * U)
 
+
 /* see bearssl_rsa.h */
 uint32_t
 br_rsa_i31_private_FI(unsigned char *x, const br_rsa_private_key *sk)
@@ -120,21 +121,23 @@ br_rsa_i31_private_FI(unsigned char *x, const br_rsa_private_key *sk)
 
         // Flags: 0 means a "blocking" call until the kernel CSPRNG is fully initialized
         //        and enough random data is available.
-        // result = getrandom(buffer, sizeof(buffer), 0);
+        result = getrandom(buffer, sizeof(buffer), 0);
 
         br_hmac_drbg_context rng;
         br_hmac_drbg_init(&rng, &br_sha256_vtable, buffer, result); //"seed for RSA SAFE", 17);
         
 
+       
+    
+        uint32_t r1[(BR_RSA_RAND_FACTOR + 63) >> 5];
+
+        make_rand(&rng.vtable, r1, BR_RSA_RAND_FACTOR);
+        r1[1] |= 1;
+        r1[0] = br_i31_bit_length(r1 + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
+        
         br_i31_init_key(&rng.vtable, sk, &rsa_sk, tmp, fwlen);
 
         br_i31_update_key(&rng.vtable, &rsa_sk, tmp, fwlen);
-    
-        uint32_t r1[(BR_RSA_RAND_FACTOR + 63) >> 5];
-        make_rand(&rng.vtable, r1, BR_RSA_RAND_FACTOR);
-        r1[0] = br_i31_bit_length(r1 + 1, (BR_RSA_RAND_FACTOR + 31) >> 5);
-        
-
         /*
          * Decode q.
          */
