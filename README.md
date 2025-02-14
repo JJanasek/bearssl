@@ -43,7 +43,13 @@ This pre-randomization ensures that secret key components are masked before use,
 
 Fault injection countermeasures have been integrated into the SCA-protected RSA decryption algorithm to enhance robustness against hardware fault attacks.
 
+First FI coutermeasure is inspired with this [paper](https://www.matthieurivain.com/files/ct-rsa14a.pdf)
+
 - **Source Code:** [rsa_secured.c](src/rsa/rsa_secured.c)
+
+Second FI coutermeasure is inpired with this [paper](https://marcjoye.github.io/papers/CJ05fdtc.pdf)
+
+- **Source Code:** [FI-countermeasure.c](src/rsa/FI-countermeasure.c)
 
 ---
 
