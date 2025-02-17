@@ -363,6 +363,20 @@ br_rsa_i31_private_FI(unsigned char *x, const br_rsa_private_key *sk)
          * we can just use it right away.
          */
         
+        br_i31_zero(t2, n[0]);
+        memcpy(t2 + 1, t1 + 1, (t1[0] + 7 >> 3));
+        t2[0] = t1[0];
+        
+        br_i31_modpow_opt_rand(&rng.vtable, t2, rsa_sk.e, rsa_sk.elen, n, br_i31_ninv31(n[1]),
+                tmp + 8 * fwlen, TLEN - 8 * fwlen);      
+
+        unsigned char * c_verif = (unsigned char *) n;
+        br_i31_encode(c_verif, xlen, t2);
+        for( int i = 0; i < xlen; ++i){
+                if(c_verif[i] != x[i]){
+                        r = 0;
+                }
+        }
 
         br_i31_encode(x, xlen, t1);
 
