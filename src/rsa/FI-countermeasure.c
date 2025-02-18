@@ -28,7 +28,6 @@
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
 #define TLEN   (24 * U)
 
-
 /* see bearssl_rsa.h */
 uint32_t
 br_rsa_i31_private_FI(unsigned char *x, const br_rsa_private_key *sk)
@@ -329,6 +328,19 @@ br_rsa_i31_private_FI(unsigned char *x, const br_rsa_private_key *sk)
         br_i31_mulacc(t3, mq, t2);
         
 
+        /*
+         * Reduce s mod r1
+         * Reduce s mod r2
+         *
+         * substract x^dp mod r1 - s mod r1
+         * substract x^dq mod r1 - s mod r2
+         *
+         * both substraction should result in zero
+         * add theese two result and add this to mask used to blind message
+         *
+         * if fault was inserted then removing mask from message will result in random result
+         */
+
         uint32_t * s_r2 = mq;
         uint32_t * s_r1 = mp;
 
@@ -338,17 +350,17 @@ br_rsa_i31_private_FI(unsigned char *x, const br_rsa_private_key *sk)
         br_i31_sub(s_r2, s2_prime, 1);
         br_i31_sub(s_r1, s1_prime, 1);
 
-        if(!br_i31_iszero(s_r2)  || !br_i31_iszero(s_r1)){
-                r = 0;
-        }
+        br_i31_add(s_r1, s_r2, 1);
+        br_i31_add(r1, s_r1, 1);
        
+        /*
+         * compute inversion of mask used for message blinding multiply result
+         */
+
         t1 = tmp + 4 * fwlen;
         br_i31_decode(n, rsa_sk.n, (rsa_sk.n_bitlen + 7) >> 3);
         br_i31_zero(t1, n[0]);
         br_i31_reduce(t1, t3, n); 
-        
-
-        
 
         t2 = tmp + 6 * fwlen;
         br_i31_zero(t2, n[0]);
@@ -359,10 +371,9 @@ br_rsa_i31_private_FI(unsigned char *x, const br_rsa_private_key *sk)
         r &= br_i31_moddiv(t1, t2, n, br_i31_ninv31(n[1]), tmp + 8 * fwlen);
         
         /*
-         * Encode the result. Since we already checked the value of xlen,
-         * we can just use it right away.
+         * Check wheter s^e = x mod n
          */
-        
+
         br_i31_zero(t2, n[0]);
         memcpy(t2 + 1, t1 + 1, (t1[0] + 7 >> 3));
         t2[0] = t1[0];
@@ -372,12 +383,19 @@ br_rsa_i31_private_FI(unsigned char *x, const br_rsa_private_key *sk)
 
         unsigned char * c_verif = (unsigned char *) n;
         br_i31_encode(c_verif, xlen, t2);
+        uint32_t mask = 0xFFFFFFFF;
         for( int i = 0; i < xlen; ++i){
-                if(c_verif[i] != x[i]){
-                        r = 0;
-                }
+               mask &= -EQ(c_verif[i],x[i]);
         }
-
+        for( int i = 0; i < xlen; ++i){
+                t1[i] &= mask;
+        }
+        
+        /*
+         * Encode the result. Since we already checked the value of xlen,
+         * we can just use it right away.
+         */
+        
         br_i31_encode(x, xlen, t1);
 
 
